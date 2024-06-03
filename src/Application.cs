@@ -1,8 +1,55 @@
 using System;
+using System.IO;
+using System.Collections.Generic;
+using FTG.Studios.MCC;
 
 class Application {
 	
+	/// Command Line Arguments
+	/// --lex - stop before parsing
+	/// --parse - stop before code generation
+	/// --codegen - stop before code emission
+	/// -S - generate assembly but not executeable
+	
 	public static void Main(string[] args) {
-		Console.WriteLine("hi");
+		string input_path = args[0];
+		string output_path = args[1];
+		
+		string source = File.ReadAllText(input_path);
+		
+		Console.WriteLine("------");
+		Console.WriteLine("Source");
+		Console.WriteLine("------");
+		Console.WriteLine(source);
+		Console.WriteLine("------\n");
+		
+		Console.WriteLine("------");
+		Console.WriteLine("Tokens");
+		Console.WriteLine("------");
+		
+		List<Token> tokens = Lexer.Tokenize(source);
+		foreach (var token in tokens) Console.WriteLine(token);
+		
+		Console.WriteLine("------\n");
+		
+		Console.WriteLine("----------");
+		Console.WriteLine("Parse Tree");
+		Console.WriteLine("----------");
+		
+		ParseTree parse_tree = Parser.Parse(tokens);
+		Console.WriteLine(parse_tree);
+		
+		Console.WriteLine("----------\n");
+		
+		Console.WriteLine("-------------");
+		Console.WriteLine("Assembly Tree");
+		Console.WriteLine("-------------");
+		
+		AssemblyTree assembly_tree = CodeGenerator.Generate(parse_tree);
+		using (StreamWriter output_file = new StreamWriter(output_path)) {
+			CodeEmitter.Emit(assembly_tree, output_file);
+		}
+		
+		Console.WriteLine("-------------");
 	}
 }
