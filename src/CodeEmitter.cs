@@ -25,10 +25,16 @@ namespace FTG.Studios.MCC {
 			// Add '_' to front of function names if on MacOS
 			if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) identifier = macos_function_prefix + identifier;
 			
+			file.WriteLine($"# int {function.Identifier}(void)");
 			file.WriteLine($".globl {identifier}");
 			file.WriteLine($"{identifier}:");
+			
+			file.WriteLine("\tpushq %rbp");
+			file.WriteLine("\tmovq %rsp, %rbp");
+			file.WriteLine();
+			
 			foreach (AssemblyNode.Instruction instruction in function.Body) {
-				file.WriteLine('\t' + instruction.Emit());
+				file.WriteLine('\t' + instruction.Emit().Replace("\n", "\n\t"));
 			}
 		}
 	}

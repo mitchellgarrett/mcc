@@ -52,7 +52,25 @@ namespace FTG.Studios.MCC
 		}
 		
 		static ParseNode.Expression ParseExpression(Queue<Token> tokens) {
+			if (Match(tokens.Peek(), TokenType.OpenParenthesis)) {
+				tokens.Dequeue();
+				ParseNode.Expression expression = ParseUnaryExpression(tokens);
+				Expect(tokens.Dequeue(), TokenType.CloseParenthesis);
+				return expression;
+			}
+			
+			if (Match(tokens.Peek(), TokenType.UnaryOperator)) return ParseUnaryExpression(tokens);
+			
 			return ParseConstantExpression(tokens);
+		}
+		
+		static ParseNode.UnaryExpression ParseUnaryExpression(Queue<Token> tokens) {
+			Token @operator = tokens.Dequeue();
+			Expect(@operator, TokenType.UnaryOperator);
+			
+			ParseNode.Expression expression = ParseExpression(tokens);
+			
+			return new ParseNode.UnaryExpression((Syntax.UnaryOperator)@operator.Value, expression);
 		}
 		
 		static ParseNode.ConstantExpression ParseConstantExpression(Queue<Token> tokens) {
@@ -65,6 +83,10 @@ namespace FTG.Studios.MCC
 			Token token = tokens.Dequeue();
 			Expect(token, TokenType.Identifier);
 			return new ParseNode.Identifier((string)token.Value);
+		}
+		
+		static bool Match(Token token, TokenType expected) {
+			return token.Type == expected;
 		}
 		
 		static void Expect(Token token, TokenType expected) {

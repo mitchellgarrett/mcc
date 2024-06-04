@@ -43,18 +43,27 @@ namespace FTG.Studios.MCC {
 		
 		static Token BuildToken(char lexeme) {
 			switch (lexeme) {
+				
 				// Puncuation
 				case Syntax.semicolon: return new Token(TokenType.Semicolon);
 				case Syntax.open_parenthesis: return new Token(TokenType.OpenParenthesis);
 				case Syntax.close_parenthesis: return new Token(TokenType.CloseParenthesis);
 				case Syntax.open_brace: return new Token(TokenType.OpenBrace);
 				case Syntax.close_brace: return new Token(TokenType.CloseBrace);
+				
+				// Unary Operators
+				case Syntax.operator_negate: return new Token(TokenType.UnaryOperator, Syntax.UnaryOperator.Negate);
+				case Syntax.operator_bitwise_complement: return new Token(TokenType.UnaryOperator, Syntax.UnaryOperator.BitwiseComplement);
 			}
 			
 			return Token.Invalid;
 		}
 		
 		static Token BuildToken(string lexeme) {
+			// Unary operators
+			if (lexeme == Syntax.operator_decrement) return new Token(TokenType.UnaryOperator, Syntax.UnaryOperator.Decrement);
+			
+			// Check if keyword
 			for	(int index = 0; index < Syntax.keywords.Length; index++) {
 				if (lexeme == Syntax.keywords[index]) return new Token(TokenType.Keyword, (Syntax.Keyword)index);
 			}

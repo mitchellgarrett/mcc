@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace FTG.Studios.MCC {
 	
 	public static class AssemblyNode {
@@ -18,16 +20,21 @@ namespace FTG.Studios.MCC {
 		
 		public class Function : Node {
 			public readonly string Identifier;
-			public readonly Instruction[] Body;
+			public List<Instruction> Body;
 			
-			public Function(string identifier, Instruction[] body) {
+			public Function(string identifier, List<Instruction> body) {
 				Identifier = identifier;
 				Body = body;
 			}
 			
-			/*public override string ToString() {
-				return $"Function(\nIdentifier=\"{Identifier}\"\nBody={Body}".Replace("\n", "\n ") + "\n)";
-			}*/
+			public override string ToString() {
+				string output = $"Function(\n Identifier=\"{Identifier}\"\n Body(\n  ";
+				foreach (var instruction in Body) {
+					output += (instruction.ToString() + '\n').Replace("\n", "\n  ");
+				}
+				output += ")\n)"; 
+				return output;
+			}
 		}
 		
 		public abstract class Operand : Node {
@@ -35,14 +42,18 @@ namespace FTG.Studios.MCC {
 		}
 		
 		public class Register : Operand {
-			public readonly string Value;
+			public readonly RegisterType Value;
 			
-			public Register(string value) {
+			public Register(RegisterType value) {
 				Value = value;
 			}
 			
 			public override string Emit() {
 				return "%eax";
+			}
+			
+			public override string ToString() {
+				return $"Register({Value})";
 			}
 		}
 		
@@ -56,6 +67,42 @@ namespace FTG.Studios.MCC {
 			public override string Emit() {
 				return $"${Value}";
 			}
+			
+			public override string ToString() {
+				return $"Immediate({Value})";
+			}
+		}
+		
+		public class Variable : Operand {
+			public readonly string Identifier;
+			
+			public Variable(string identifier) {
+				Identifier = identifier;
+			}
+			
+			public override string Emit() {
+				return $"{Identifier}";
+			}
+			
+			public override string ToString() {
+				return $"Pseudo({Identifier})";
+			}
+		}
+		
+		public class StackAccess : Operand {
+			public readonly int Offset;
+			
+			public StackAccess(int offset) {
+				Offset = offset;
+			}
+			
+			public override string Emit() {
+				return $"{Offset}(%rbp)";
+			}
+			
+			public override string ToString() {
+				return $"Stack({Offset})";
+			}
 		}
 		
 		public abstract class Instruction : Node {
@@ -63,8 +110,8 @@ namespace FTG.Studios.MCC {
 		}
 		
 		public class MOV : Instruction {
-			public readonly Operand Source;
-			public readonly Operand Destination;
+			public Operand Source;
+			public Operand Destination;
 			
 			public MOV(Operand source, Operand destination) {
 				Source = source;
@@ -74,11 +121,58 @@ namespace FTG.Studios.MCC {
 			public override string Emit() {
 				return $"movl {Source.Emit()}, {Destination.Emit()}";
 			}
+			
+			public override string ToString() {
+				return $"Mov({Source}, {Destination})";
+			}
 		}
 		
 		public class RET : Instruction {
 			public override string Emit() {
-				return $"ret";
+				return "\nmovq %rbp, %rsp\npopq %rbp\nret";
+			}
+			
+			public override string ToString() {
+				return "Ret";
+			}
+		}
+		
+		public class AllocateStackInstruction : Instruction {
+			public int Offset;
+			
+			public AllocateStackInstruction(int offset) {
+				Offset = offset;
+			}
+			
+			public override string Emit() {
+				return $"subq ${Offset}, %rsp";
+			}
+			
+			public override string ToString() {
+				return $"AllocateStack({Offset})";
+			}
+		}
+		
+		public class UnaryInstruction : Instruction {
+			public readonly Syntax.UnaryOperator Operator;
+			public Operand Operand;
+			
+			public UnaryInstruction(Syntax.UnaryOperator @operator, Operand operand) {
+				Operator = @operator;
+				Operand = operand;
+			}
+			
+			public override string Emit() {
+				switch (Operator)
+				{
+					case Syntax.UnaryOperator.BitwiseComplement: return $"notl {Operand.Emit()}";
+					case Syntax.UnaryOperator.Negate: return $"negl {Operand.Emit()}";
+				}
+				return null;
+			}
+			
+			public override string ToString() {
+				return $"Unary({Operator}, {Operand})";
 			}
 		}
 	}

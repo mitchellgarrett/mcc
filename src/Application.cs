@@ -41,15 +41,36 @@ class Application {
 		
 		Console.WriteLine("----------\n");
 		
+		Console.WriteLine("-----------------");
+		Console.WriteLine("Intermediate Tree");
+		Console.WriteLine("-----------------");
+		
+		IntermediateTree intermediate_tree = IntermediateGenerator.Generate(parse_tree);
+		Console.WriteLine(intermediate_tree);
+		
+		Console.WriteLine("-----------------\n");
+		
 		Console.WriteLine("-------------");
 		Console.WriteLine("Assembly Tree");
 		Console.WriteLine("-------------");
 		
-		AssemblyTree assembly_tree = CodeGenerator.Generate(parse_tree);
+		AssemblyTree assembly_tree = CodeGenerator.Generate(intermediate_tree);
+		Console.WriteLine(assembly_tree);
+		
+		Console.WriteLine("-------------");
+		
+		Console.WriteLine("--------");
+		Console.WriteLine("Optimzer");
+		Console.WriteLine("--------");
+		
+		CodeOptimizer.AssignVariables(assembly_tree);
+		CodeOptimizer.FixVariableAccesses(assembly_tree);
+		Console.WriteLine(assembly_tree);
+		
+		Console.WriteLine("--------");
+		
 		using (StreamWriter output_file = new StreamWriter(output_path)) {
 			CodeEmitter.Emit(assembly_tree, output_file);
 		}
-		
-		Console.WriteLine("-------------");
 	}
 }

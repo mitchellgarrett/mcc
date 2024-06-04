@@ -26,7 +26,7 @@ namespace FTG.Studios.MCC {
 			}
 			
 			public override string ToString() {
-				return $"Function(\nIdentifier=\"{Identifier}\"\nBody={Body}".Replace("\n", "\n ") + "\n)";
+				return $"Function(\nIdentifier=\"{Identifier}\"\nBody(\n{Body}\n)".Replace("\n", "\n ") + "\n)";
 			}
 		}
 		
@@ -54,7 +54,21 @@ namespace FTG.Studios.MCC {
 			}
 			
 			public override string ToString() {
-				return $"Consant({Value})".Replace("\n", "\n ");
+				return $"Constant({Value})".Replace("\n", "\n ");
+			}
+		}
+		
+		public class UnaryExpression : Expression {
+			public readonly Syntax.UnaryOperator Operator;
+			public readonly Expression Expression;
+			
+			public UnaryExpression(Syntax.UnaryOperator @operator, Expression expression) {
+				Operator = @operator;
+				Expression = expression;
+			}
+			
+			public override string ToString() {
+				return $"Unary({Operator}, {Expression})".Replace("\n", "\n ");
 			}
 		}
 		
