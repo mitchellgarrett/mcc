@@ -1,5 +1,7 @@
+rwildcard = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2))
+
 SRC_DIR = src
-SRC = $(wildcard $(SRC_DIR)/*.cs)
+SRC = $(wildcard $(SRC_DIR)/*.cs) $(wildcard $(SRC_DIR)/assembly/*.cs) $(wildcard $(SRC_DIR)/codegen/*.cs) $(wildcard $(SRC_DIR)/compiler/*.cs) $(wildcard $(SRC_DIR)/intermediate/*.cs) 
 BUILD_DIR = build
 TARGET = $(BUILD_DIR)/mcc.exe
 
