@@ -1,6 +1,6 @@
 namespace FTG.Studios.MCC {
 	
-	public static class IntermediateNode {
+	public static partial class IntermediateNode {
 		
 		public abstract class Node { }
 		
@@ -32,62 +32,6 @@ namespace FTG.Studios.MCC {
 				}
 				output += ")\n)"; 
 				return output;
-			}
-		}
-		
-		public abstract class Operand : Node { }
-		
-		public class Constant : Operand {
-			public readonly int Value;
-			
-			public Constant(int value) {
-				Value = value;
-			}
-			
-			public override string ToString() {
-				return $"Constant({Value})";
-			}
-		}
-		
-		public class Variable : Operand {
-			public readonly string Identifier;
-			
-			public Variable(string identifier) {
-				Identifier = identifier;
-			}
-			
-			public override string ToString() {
-				return $"Variable(\"{Identifier}\")";
-			}
-		}
-		
-		public abstract class Instruction : Node { }
-		
-		public class ReturnInstruction : Instruction {
-			public readonly Operand Value;
-			
-			public ReturnInstruction(Operand value) {
-				Value = value;
-			}
-			
-			public override string ToString() {
-				return $"Return({Value})";
-			}
-		}
-		
-		public class UnaryInstruction : Instruction {
-			public readonly Syntax.UnaryOperator Operator;
-			public readonly Operand Source;
-			public readonly Operand Destination;
-			
-			public UnaryInstruction(Syntax.UnaryOperator @operator, Operand source, Operand destination) {
-				Operator = @operator;
-				Source = source;
-				Destination = destination;
-			}
-			
-			public override string ToString() {
-				return $"Unary({Operator}, {Source}, {Destination})";
 			}
 		}
 	}
