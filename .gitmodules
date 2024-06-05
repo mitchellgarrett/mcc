@@ -1,3 +1,4 @@
-[submodule "deps/tests"]
-	path = deps/tests
+[submodule "deps/test"]
+	path = deps/test
 	url = https://github.com/nlsandler/writing-a-c-compiler-tests.git
+	branch = complete-test-suite
