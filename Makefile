@@ -37,5 +37,7 @@ asm: $(TARGET)
 exe:
 	@gcc $(ASM_FILE) -o $(EXE_FILE)
 
+.PHONY: clean
 clean:
 	@rm -rf $(BUILD_DIR)
+
