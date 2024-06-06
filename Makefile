@@ -40,4 +40,5 @@ exe:
 .PHONY: clean
 clean:
 	@rm -rf $(BUILD_DIR)
+	@rm -rf bin obj
 
