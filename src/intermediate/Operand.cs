@@ -23,6 +23,10 @@ namespace FTG.Studios.MCC {
 			}
 		}
 		
+		public static Constant ToIntermediateConstant(this int value) {
+			return new Constant(value);
+		}
+		
 		public class Variable : Operand {
 			public readonly string Identifier;
 			

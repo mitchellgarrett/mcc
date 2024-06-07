@@ -60,6 +60,9 @@ namespace FTG.Studios.MCC {
 				case Syntax.operator_multiplication: return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Multiplication);
 				case Syntax.operator_division: return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Division);
 				case Syntax.operator_remainder: return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Remainder);
+				// TODO: This will probably override <=/>=
+				case Syntax.operator_logical_less_than: return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalLessThan);
+				case Syntax.operator_logical_greater_than: return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalGreatherThan);
 			}
 			
 			return Token.Invalid;
@@ -68,6 +71,14 @@ namespace FTG.Studios.MCC {
 		static Token BuildToken(string lexeme) {
 			// Unary operators
 			if (lexeme == Syntax.operator_decrement) return new Token(TokenType.UnaryOperator, Syntax.UnaryOperator.Decrement);
+			
+			// Binary operators
+			if (lexeme == Syntax.operator_logical_and) return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalAnd);
+			if (lexeme == Syntax.operator_logical_or) return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalOr);
+			if (lexeme == Syntax.operator_logical_equal) return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalEqual);
+			if (lexeme == Syntax.operator_logical_not_equal) return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalNotEqual);
+			if (lexeme == Syntax.operator_logical_less_than_equal_to) return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalLessThanEqualTo);
+			if (lexeme == Syntax.operator_logical_greater_than_equal_to) return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalGreatherThanEqualTo);
 			
 			// Check if keyword
 			for	(int index = 0; index < Syntax.keywords.Length; index++) {

@@ -24,9 +24,11 @@ namespace FTG.Studios.MCC {
 			variable_stack_offsets.Clear();
 			
 			foreach (var instruction in function.Body) {
-				if (instruction is AssemblyNode.MOV) AssignVariablesMOV(instruction as AssemblyNode.MOV);
-				if (instruction is AssemblyNode.UnaryInstruction) AssignVariablesUnaryInstruction(instruction as AssemblyNode.UnaryInstruction);
-				if (instruction is AssemblyNode.BinaryInstruction) AssignVariablesBinaryInstruction(instruction as AssemblyNode.BinaryInstruction);
+				if (instruction is AssemblyNode.MOV instruction_mov) AssignVariablesMOV(instruction_mov);
+				if (instruction is AssemblyNode.CMP instruction_cmp) AssignVariablesCMP(instruction_cmp);
+				if (instruction is AssemblyNode.SETCC instruction_set) AssignVariablesSET(instruction_set);
+				if (instruction is AssemblyNode.UnaryInstruction instruction_unary) AssignVariablesUnaryInstruction(instruction_unary);
+				if (instruction is AssemblyNode.BinaryInstruction instruction_binary) AssignVariablesBinaryInstruction(instruction_binary);
 			}
 			
 			int space_to_allocate = System.Math.Abs(stack_offset);
@@ -45,6 +47,25 @@ namespace FTG.Studios.MCC {
 			if (instruction.Destination is AssemblyNode.Variable) {
 				AssemblyNode.Variable variable = instruction.Destination as AssemblyNode.Variable;
 				instruction.Destination = GetStackOffset(variable.Identifier);
+			}
+		}
+		
+		static void AssignVariablesCMP(AssemblyNode.CMP instruction) {
+			if (instruction.LeftOperand is AssemblyNode.Variable) {
+				AssemblyNode.Variable variable = instruction.LeftOperand as AssemblyNode.Variable;
+				instruction.LeftOperand = GetStackOffset(variable.Identifier);
+			}
+			
+			if (instruction.RightOperand is AssemblyNode.Variable) {
+				AssemblyNode.Variable variable = instruction.RightOperand as AssemblyNode.Variable;
+				instruction.RightOperand = GetStackOffset(variable.Identifier);
+			}
+		}
+		
+		static void AssignVariablesSET(AssemblyNode.SETCC instruction) {
+			if (instruction.Operand is AssemblyNode.Variable) {
+				AssemblyNode.Variable variable = instruction.Operand as AssemblyNode.Variable;
+				instruction.Operand = GetStackOffset(variable.Identifier);
 			}
 		}
 		
@@ -76,8 +97,9 @@ namespace FTG.Studios.MCC {
 			for (int index = 0; index < function.Body.Count; index++)
 			{
 				if (function.Body[index] is AssemblyNode.MOV) FixVariableAccessesMOV(ref function.Body, index);
-				if (function.Body[index] is AssemblyNode.BinaryInstruction) FixVariableAccessesBinaryInstruction(ref function.Body, index);
+				if (function.Body[index] is AssemblyNode.CMP) FixVariableAccessesCMP(ref function.Body, index);
 				if (function.Body[index] is AssemblyNode.IDIV) FixVariableAccessesIDIV(ref function.Body, index);
+				if (function.Body[index] is AssemblyNode.BinaryInstruction) FixVariableAccessesBinaryInstruction(ref function.Body, index);
 			}
 		}
 		
@@ -88,6 +110,23 @@ namespace FTG.Studios.MCC {
 				AssemblyNode.StackAccess source = instruction.Source as AssemblyNode.StackAccess;
 				instruction.Source = RegisterType.R10.ToOperand();
 				instructions.Insert(index, new AssemblyNode.MOV(source, RegisterType.R10.ToOperand()));
+			}
+		}
+		
+		static void FixVariableAccessesCMP(ref List<AssemblyNode.Instruction> instructions, int index) {
+			// cmp can't have memory locations as both operands
+			AssemblyNode.CMP instruction = instructions[index] as AssemblyNode.CMP;
+			if (instruction.LeftOperand is AssemblyNode.StackAccess && instruction.RightOperand is AssemblyNode.StackAccess) {
+				AssemblyNode.StackAccess left_operand = instruction.LeftOperand as AssemblyNode.StackAccess;
+				instruction.RightOperand = RegisterType.R10.ToOperand();
+				instructions.Insert(index, new AssemblyNode.MOV(left_operand, RegisterType.R10.ToOperand()));
+			}
+			
+			// cmp can't have immediate as second operand
+			if (instruction.RightOperand is AssemblyNode.Immediate) {
+				AssemblyNode.Immediate right_operand = instruction.RightOperand as AssemblyNode.Immediate;
+				instruction.RightOperand = RegisterType.R11.ToOperand();
+				instructions.Insert(index, new AssemblyNode.MOV(right_operand, RegisterType.R11.ToOperand()));
 			}
 		}
 		

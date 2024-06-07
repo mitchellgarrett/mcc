@@ -16,6 +16,72 @@ namespace FTG.Studios.MCC {
 			}
 		}
 		
+		public class Copy : Instruction {
+			public readonly Operand Source;
+			public readonly Operand Destination;
+			
+			public Copy(Operand source, Operand destination) {
+				Source = source;
+				Destination = destination;
+			}
+			
+			public override string ToString() {
+				return $"Copy({Source}, {Destination})";
+			}
+		}
+		
+		public class Jump : Instruction {
+			public readonly string Target;
+			
+			public Jump(string target) {
+				Target = target;
+			}
+			
+			public override string ToString() {
+				return $"Jump({Target})";
+			}
+		}
+		
+		public class JumpIfZero : Instruction {
+			public readonly string Target;
+			public readonly Operand Condition;
+			
+			public JumpIfZero(string target, Operand condition) {
+				Target = target;
+				Condition = condition;
+			}
+			
+			public override string ToString() {
+				return $"JumpIfZero({Target}, {Condition})";
+			}
+		}
+		
+		public class JumpIfNotZero : Instruction {
+			public readonly string Target;
+			public readonly Operand Condition;
+			
+			public JumpIfNotZero(string target, Operand condition) {
+				Target = target;
+				Condition = condition;
+			}
+			
+			public override string ToString() {
+				return $"JumpIfNotZero({Target}, {Condition})";
+			}
+		}
+		
+		public class Label : Instruction {
+			public readonly string Identifier;
+			
+			public Label(string identifier) {
+				Identifier = identifier;
+			}
+			
+			public override string ToString() {
+				return $"Label({Identifier})";
+			}
+		}
+		
 		public class UnaryInstruction : Instruction {
 			public readonly Syntax.UnaryOperator Operator;
 			public readonly Operand Source;

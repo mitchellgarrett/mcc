@@ -60,6 +60,92 @@ namespace FTG.Studios.MCC {
 			}
 		}
 		
+		public class CMP : Instruction {
+			public Operand LeftOperand;
+			public Operand RightOperand;
+			
+			public CMP(Operand left_operand, Operand right_operand) {
+				LeftOperand = left_operand;
+				RightOperand = right_operand;
+			}
+			
+			public override string Emit() {
+				return $"cmpl {LeftOperand.Emit()}, {RightOperand.Emit()}";
+			}
+			
+			public override string ToString() {
+				return $"CMP({LeftOperand.Emit()}, {RightOperand.Emit()})";
+			}
+		}
+		
+		public class JMP : Instruction {
+			public readonly string Identifier;
+			
+			public JMP(string identifier) {
+				Identifier = identifier;
+			}
+			
+			public override string Emit() {
+				return $"jmp {Identifier}";
+			}
+			
+			public override string ToString() {
+				return $"JMP({Identifier})";
+			}
+		}
+		
+		public class JMPCC : Instruction {
+			public readonly string Identifier;
+			public readonly ConditionType Condition;
+			
+			public JMPCC(string identifier, ConditionType condition) {
+				Identifier = identifier;
+				Condition = condition;
+			}
+			
+			public override string Emit() {
+				return $"j{Condition.ToString().ToLower()} {Identifier}";
+			}
+			
+			public override string ToString() {
+				return $"JMP({Condition}, {Identifier})";
+			}
+		}
+		
+		public class SETCC : Instruction {
+			public Operand Operand;
+			public readonly ConditionType Condition;
+			
+			public SETCC(Operand operand, ConditionType condition) {
+				Operand = operand;
+				Condition = condition;
+			}
+			
+			public override string Emit() {
+				return $"set{Condition.ToString().ToLower()} {Operand.Emit()}";
+			}
+			
+			public override string ToString() {
+				return $"SET({Condition}, {Operand})";
+			}
+		}
+		
+		public class Label : Instruction {
+			public readonly string Identifier;
+			
+			public Label(string identifier) {
+				Identifier = identifier;
+			}
+			
+			public override string Emit() {
+				return $"{Identifier}:";
+			}
+			
+			public override string ToString() {
+				return $"Label({Identifier})";
+			}
+		}
+		
 		public class AllocateStackInstruction : Instruction {
 			public int Offset;
 			

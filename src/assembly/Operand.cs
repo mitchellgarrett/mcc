@@ -38,6 +38,10 @@ namespace FTG.Studios.MCC {
 			}
 		}
 		
+		public static Immediate ToAssemblyImmediate(this int value) {
+			return new Immediate(value);
+		}
+		
 		public class Variable : Operand {
 			public readonly string Identifier;
 			
