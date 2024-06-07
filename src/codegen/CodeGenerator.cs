@@ -17,9 +17,11 @@ namespace FTG.Studios.MCC {
 		
 		static AssemblyNode.Function GenerateFunction(IntermediateNode.Function function) {
 			string identifier = function.Identifier;
-			List<AssemblyNode.Instruction> instructions = new List<AssemblyNode.Instruction>();
+			List<List<AssemblyNode.Instruction>> instructions = new List<List<AssemblyNode.Instruction>>();
 			foreach (var instruction in function.Body) {
-				GenerateInstruction(ref instructions, instruction);
+				List<AssemblyNode.Instruction> instruction_body = new List<AssemblyNode.Instruction>();
+				GenerateInstruction(ref instruction_body, instruction);
+				instructions.Add(instruction_body);
 			}
 			return new AssemblyNode.Function(identifier, instructions);
 		}

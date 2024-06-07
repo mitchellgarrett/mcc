@@ -33,8 +33,12 @@ namespace FTG.Studios.MCC {
 			file.WriteLine("\tmovq %rsp, %rbp");
 			file.WriteLine();
 			
-			foreach (AssemblyNode.Instruction instruction in function.Body) {
-				file.WriteLine('\t' + instruction.Emit().Replace("\n", "\n\t"));
+			foreach (var instruction_list in function.Body) {
+				foreach (var instruction in instruction_list)
+				{
+					file.WriteLine('\t' + instruction.Emit().Replace("\n", "\n\t"));
+				}
+				file.WriteLine();
 			}
 		}
 	}

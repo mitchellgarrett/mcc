@@ -23,14 +23,21 @@ namespace FTG.Studios.MCC {
 			stack_offset = 0;
 			variable_stack_offsets.Clear();
 			
-			foreach (var instruction in function.Body) {
-				if (instruction is AssemblyNode.MOV) AssignVariablesMOV(instruction as AssemblyNode.MOV);
-				if (instruction is AssemblyNode.UnaryInstruction) AssignVariablesUnaryInstruction(instruction as AssemblyNode.UnaryInstruction);
-				if (instruction is AssemblyNode.BinaryInstruction) AssignVariablesBinaryInstruction(instruction as AssemblyNode.BinaryInstruction);
+			foreach (var instruction_list in function.Body) {
+				foreach (var instruction in instruction_list)
+				{
+					if (instruction is AssemblyNode.MOV) AssignVariablesMOV(instruction as AssemblyNode.MOV);
+					if (instruction is AssemblyNode.UnaryInstruction) AssignVariablesUnaryInstruction(instruction as AssemblyNode.UnaryInstruction);
+					if (instruction is AssemblyNode.BinaryInstruction) AssignVariablesBinaryInstruction(instruction as AssemblyNode.BinaryInstruction);
+				}
 			}
 			
 			int space_to_allocate = System.Math.Abs(stack_offset);
-			if (space_to_allocate > 0) function.Body.Insert(0, new AssemblyNode.AllocateStackInstruction(space_to_allocate));
+			if (space_to_allocate > 0) {
+				List<AssemblyNode.Instruction> allocate_stack_space_instruction = new List<AssemblyNode.Instruction>();
+				allocate_stack_space_instruction.Add(new AssemblyNode.AllocateStackInstruction(space_to_allocate));
+				function.Body.Insert(0, allocate_stack_space_instruction);
+			}
 		}
 		
 		static void AssignVariablesMOV(AssemblyNode.MOV instruction) {
@@ -70,10 +77,14 @@ namespace FTG.Studios.MCC {
 		}
 		
 		public static void FixVariableAccessesFunction(AssemblyNode.Function function) {
-			for (int index = 0; index < function.Body.Count; index++) {
-				if (function.Body[index] is AssemblyNode.MOV) FixVariableAccessesMOV(ref function.Body, index);
-				if (function.Body[index] is AssemblyNode.BinaryInstruction) FixVariableAccessesBinaryInstruction(ref function.Body, index);
-				if (function.Body[index] is AssemblyNode.IDIV) FixVariableAccessesIDIV(ref function.Body, index);
+			for (int list_index = 0; list_index < function.Body.Count; list_index++)
+			{
+				List<AssemblyNode.Instruction> instructions = function.Body[list_index];
+				for (int index = 0; index < instructions.Count; index++) {
+					if (instructions[index] is AssemblyNode.MOV) FixVariableAccessesMOV(ref instructions, index);
+					if (instructions[index] is AssemblyNode.BinaryInstruction) FixVariableAccessesBinaryInstruction(ref instructions, index);
+					if (instructions[index] is AssemblyNode.IDIV) FixVariableAccessesIDIV(ref instructions, index);
+				}
 			}
 		}
 		

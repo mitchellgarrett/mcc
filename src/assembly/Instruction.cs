@@ -20,7 +20,7 @@ namespace FTG.Studios.MCC {
 			}
 			
 			public override string ToString() {
-				return $"Mov({Source}, {Destination})";
+				return $"MOV({Source}, {Destination})";
 			}
 		}
 		
@@ -30,7 +30,7 @@ namespace FTG.Studios.MCC {
 			}
 			
 			public override string ToString() {
-				return "Ret";
+				return "RET";
 			}
 		}
 		
@@ -42,21 +42,21 @@ namespace FTG.Studios.MCC {
 			}
 			
 			public override string Emit() {
-				return "";
+				return $"idivl {Operand.Emit()}";
 			}
 			
 			public override string ToString() {
-				return $"Idiv({Operand})";
+				return $"IDIV({Operand})";
 			}
 		}
 		
 		public class CDQ : Instruction {
 			public override string Emit() {
-				return "";
+				return "cdq";
 			}
 			
 			public override string ToString() {
-				return "Cdq";
+				return "CDQ";
 			}
 		}
 		
