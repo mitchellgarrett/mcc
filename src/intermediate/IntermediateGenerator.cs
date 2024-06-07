@@ -40,7 +40,7 @@ namespace FTG.Studios.MCC {
 		
 		static IntermediateNode.Operand GenerateReturnStatement(ref List<IntermediateNode.Instruction> instructions, ParseNode.ReturnStatement statement) {
 			IntermediateNode.Operand value = GenerateExpression(ref instructions, statement.Expression);
-			instructions.Add(new IntermediateNode.Comment($"Return {value}"));
+			instructions.Add(new IntermediateNode.Comment($"return {value.ToCommentString()}"));
 			instructions.Add(new IntermediateNode.ReturnInstruction(value));
 			return value;
 		}
@@ -59,7 +59,7 @@ namespace FTG.Studios.MCC {
 		static IntermediateNode.Operand GenerateUnaryExpression(ref List<IntermediateNode.Instruction> instructions, ParseNode.UnaryExpression expression) {
 			IntermediateNode.Operand source = GenerateExpression(ref instructions, expression.Expression);
 			IntermediateNode.Operand destination = NextTemporaryVariable;
-			instructions.Add(new IntermediateNode.Comment($"{destination} = {expression.Operator.GetOperator()} {source}"));
+			instructions.Add(new IntermediateNode.Comment($"{destination.ToCommentString()} = {expression.Operator.GetOperator()} {source.ToCommentString()}"));
 			instructions.Add(new IntermediateNode.UnaryInstruction(expression.Operator, source, destination));
 			return destination;
 		}
@@ -68,7 +68,7 @@ namespace FTG.Studios.MCC {
 			IntermediateNode.Operand lhs = GenerateExpression(ref instructions, expression.LeftExpression);
 			IntermediateNode.Operand rhs = GenerateExpression(ref instructions, expression.RightExpression);
 			IntermediateNode.Operand destination = NextTemporaryVariable;
-			instructions.Add(new IntermediateNode.Comment($"{destination} = {lhs} {expression.Operator.GetOperator()} {rhs}"));
+			instructions.Add(new IntermediateNode.Comment($"{destination.ToCommentString()} = {lhs.ToCommentString()} {expression.Operator.GetOperator()} {rhs.ToCommentString()}"));
 			instructions.Add(new IntermediateNode.BinaryInstruction(expression.Operator, lhs, rhs, destination));
 			return destination;
 		}

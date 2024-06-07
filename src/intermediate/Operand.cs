@@ -2,7 +2,9 @@ namespace FTG.Studios.MCC {
 	
 	public static partial class IntermediateNode {
 		
-		public abstract class Operand : Node { }
+		public abstract class Operand : Node {
+			public abstract string ToCommentString();
+		}
 		
 		public class Constant : Operand {
 			public readonly int Value;
@@ -10,7 +12,12 @@ namespace FTG.Studios.MCC {
 			public Constant(int value) {
 				Value = value;
 			}
-			
+
+			public override string ToCommentString()
+			{
+				return Value.ToString();
+			}
+
 			public override string ToString() {
 				return $"Constant({Value})";
 			}
@@ -21,6 +28,11 @@ namespace FTG.Studios.MCC {
 			
 			public Variable(string identifier) {
 				Identifier = identifier;
+			}
+			
+			public override string ToCommentString()
+			{
+				return Identifier;
 			}
 			
 			public override string ToString() {
