@@ -20,25 +20,42 @@ namespace FTG.Studios.MCC {
 		
 		public class Function : Node {
 			public readonly string Identifier;
-			public List<List<Instruction>> Body;
+			public List<Instruction> Body;
 			
-			public Function(string identifier, List<List<Instruction>> body) {
+			public Function(string identifier, List<Instruction> body) {
 				Identifier = identifier;
 				Body = body;
 			}
 			
 			public override string ToString() {
 				string output = $"Function(\n Identifier=\"{Identifier}\"\n Body(\n  ";
-				foreach (var instruction_list in Body) {
-					foreach (var instruction in instruction_list)
-					{
-						output += (instruction.ToString() + '\n').Replace("\n", "\n  ");
-					}
-					output += '\n';
+				foreach (var instruction in Body) {
+					output += (instruction.ToString() + '\n').Replace("\n", "\n  ");
 				}
 				output += ")\n)"; 
 				return output;
 			}
-		}		
+		}
+		
+		/// <summary>
+		/// Node to store useful comment data
+		/// </summary>
+		public class Comment : Instruction {
+			public readonly ParseNode.Node Data;
+			
+			public Comment(ParseNode.Node data) {
+				Data = data;
+			}
+
+			public override string Emit()
+			{
+				return $"# {Data}".Replace("\n", "\n# ");
+			}
+
+			public override string ToString()
+			{
+				return $"Comment({Data})";
+			}
+		}
 	}
 }

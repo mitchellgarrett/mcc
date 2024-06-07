@@ -34,5 +34,21 @@ namespace FTG.Studios.MCC {
 				return output;
 			}
 		}
+		
+		/// <summary>
+		/// Node to store useful comment data
+		/// </summary>
+		public class Comment : Instruction {
+			public readonly ParseNode.Node Data;
+			
+			public Comment(ParseNode.Node data) {
+				Data = data;
+			}
+
+			public override string ToString()
+			{
+				return $"Comment({Data})";
+			}
+		}
 	}
 }

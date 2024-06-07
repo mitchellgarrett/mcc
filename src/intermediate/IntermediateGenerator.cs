@@ -34,6 +34,7 @@ namespace FTG.Studios.MCC {
 		}
 		
 		static IntermediateNode.Operand GenerateStatement(ref List<IntermediateNode.Instruction> instructions, ParseNode.Statement statement) {
+			instructions.Add(new IntermediateNode.Comment(statement));
 			if (statement is ParseNode.ReturnStatement) return GenerateReturnStatement(ref instructions, statement as ParseNode.ReturnStatement);
 			return null;
 		}

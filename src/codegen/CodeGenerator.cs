@@ -17,19 +17,22 @@ namespace FTG.Studios.MCC {
 		
 		static AssemblyNode.Function GenerateFunction(IntermediateNode.Function function) {
 			string identifier = function.Identifier;
-			List<List<AssemblyNode.Instruction>> instructions = new List<List<AssemblyNode.Instruction>>();
+			List<AssemblyNode.Instruction> instructions = new List<AssemblyNode.Instruction>();
 			foreach (var instruction in function.Body) {
-				List<AssemblyNode.Instruction> instruction_body = new List<AssemblyNode.Instruction>();
-				GenerateInstruction(ref instruction_body, instruction);
-				instructions.Add(instruction_body);
+				GenerateInstruction(ref instructions, instruction);
 			}
 			return new AssemblyNode.Function(identifier, instructions);
 		}
 		
 		static void GenerateInstruction(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.Instruction instruction) {
+			if (instruction is IntermediateNode.Comment) GenerateComment(ref instructions, instruction as IntermediateNode.Comment);
 			if (instruction is IntermediateNode.ReturnInstruction) GenerateReturnInstruction(ref instructions, instruction as IntermediateNode.ReturnInstruction);
 			if (instruction is IntermediateNode.UnaryInstruction) GenerateUnaryInstruction(ref instructions, instruction as IntermediateNode.UnaryInstruction);
 			if (instruction is IntermediateNode.BinaryInstruction) GenerateBinaryInstruction(ref instructions, instruction as IntermediateNode.BinaryInstruction);
+		}
+		
+		static void GenerateComment(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.Comment comment) {
+			instructions.Add(new AssemblyNode.Comment(comment.Data));
 		}
 		
 		static void GenerateReturnInstruction(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.ReturnInstruction instruction) {
