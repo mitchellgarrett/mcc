@@ -34,6 +34,32 @@ namespace FTG.Studios.MCC {
 			}
 		}
 		
+		public class IDIV : Instruction {
+			public Operand Operand;
+			
+			public IDIV(Operand operand) {
+				Operand = operand;
+			}
+			
+			public override string Emit() {
+				return "";
+			}
+			
+			public override string ToString() {
+				return $"Idiv({Operand})";
+			}
+		}
+		
+		public class CDQ : Instruction {
+			public override string Emit() {
+				return "";
+			}
+			
+			public override string ToString() {
+				return "Cdq";
+			}
+		}
+		
 		public class AllocateStackInstruction : Instruction {
 			public int Offset;
 			
@@ -63,13 +89,39 @@ namespace FTG.Studios.MCC {
 				switch (Operator)
 				{
 					case Syntax.UnaryOperator.BitwiseComplement: return $"notl {Operand.Emit()}";
-					case Syntax.UnaryOperator.Negate: return $"negl {Operand.Emit()}";
+					case Syntax.UnaryOperator.Negation: return $"negl {Operand.Emit()}";
 				}
 				return null;
 			}
 			
 			public override string ToString() {
 				return $"Unary({Operator}, {Operand})";
+			}
+		}
+		
+		public class BinaryInstruction : Instruction {
+			public readonly Syntax.BinaryOperator Operator;
+			public Operand Source;
+			public Operand Destination;
+			
+			public BinaryInstruction(Syntax.BinaryOperator @operator, Operand source, Operand destination) {
+				Operator = @operator;
+				Source = source;
+				Destination = destination;
+			}
+			
+			public override string Emit() {
+				return Operator switch
+				{
+					Syntax.BinaryOperator.Addition => $"addl {Source.Emit()}, {Destination.Emit()}",
+					Syntax.BinaryOperator.Subtraction => $"subl {Source.Emit()}, {Destination.Emit()}",
+					Syntax.BinaryOperator.Multiplication => $"imull {Source.Emit()}, {Destination.Emit()}",
+					_ => null,
+				};
+			}
+			
+			public override string ToString() {
+				return $"Binary({Operator}, {Source}, {Destination})";
 			}
 		}
 	}

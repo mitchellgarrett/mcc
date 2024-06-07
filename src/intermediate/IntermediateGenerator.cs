@@ -47,6 +47,7 @@ namespace FTG.Studios.MCC {
 		static IntermediateNode.Operand GenerateExpression(ref List<IntermediateNode.Instruction> instructions, ParseNode.Expression expression) {
 			if (expression is ParseNode.ConstantExpression) return GenerateConstantExpression(expression as ParseNode.ConstantExpression);
 			if (expression is ParseNode.UnaryExpression) return GenerateUnaryExpression(ref instructions, expression as ParseNode.UnaryExpression);
+			if (expression is ParseNode.BinaryExpression) return GenerateBinaryExpression(ref instructions, expression as ParseNode.BinaryExpression);
 			return null;
 		}
 		
@@ -58,6 +59,14 @@ namespace FTG.Studios.MCC {
 			IntermediateNode.Operand source = GenerateExpression(ref instructions, expression.Expression);
 			IntermediateNode.Operand destination = NextTemporaryVariable;
 			instructions.Add(new IntermediateNode.UnaryInstruction(expression.Operator, source, destination));
+			return destination;
+		}
+		
+		static IntermediateNode.Operand GenerateBinaryExpression(ref List<IntermediateNode.Instruction> instructions, ParseNode.BinaryExpression expression) {
+			IntermediateNode.Operand lhs = GenerateExpression(ref instructions, expression.LeftExpression);
+			IntermediateNode.Operand rhs = GenerateExpression(ref instructions, expression.RightExpression);
+			IntermediateNode.Operand destination = NextTemporaryVariable;
+			instructions.Add(new IntermediateNode.BinaryInstruction(expression.Operator, lhs, rhs, destination));
 			return destination;
 		}
 	}

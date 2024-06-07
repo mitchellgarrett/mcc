@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace FTG.Studios.MCC {
@@ -26,11 +27,12 @@ namespace FTG.Studios.MCC {
 		static void GenerateInstruction(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.Instruction instruction) {
 			if (instruction is IntermediateNode.ReturnInstruction) GenerateReturnInstruction(ref instructions, instruction as IntermediateNode.ReturnInstruction);
 			if (instruction is IntermediateNode.UnaryInstruction) GenerateUnaryInstruction(ref instructions, instruction as IntermediateNode.UnaryInstruction);
+			if (instruction is IntermediateNode.BinaryInstruction) GenerateBinaryInstruction(ref instructions, instruction as IntermediateNode.BinaryInstruction);
 		}
 		
 		static void GenerateReturnInstruction(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.ReturnInstruction instruction) {
 			AssemblyNode.Operand source = GenerateOperand(instruction.Value);
-			AssemblyNode.Operand destination = new AssemblyNode.Register(RegisterType.AX);
+			AssemblyNode.Operand destination = RegisterType.AX.ToOperand();
 			
 			instructions.Add(new AssemblyNode.MOV(source, destination));
 			instructions.Add(new AssemblyNode.RET());
@@ -44,9 +46,62 @@ namespace FTG.Studios.MCC {
 			instructions.Add(new AssemblyNode.UnaryInstruction(instruction.Operator, destination));
 		}
 		
+		static void GenerateBinaryInstruction(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.BinaryInstruction instruction) {
+			switch (instruction.Operator)
+			{
+				case Syntax.BinaryOperator.Addition: 
+				case Syntax.BinaryOperator.Subtraction: 
+				case Syntax.BinaryOperator.Multiplication: 
+					GenerateSimpleBinaryOperation(ref instructions, instruction);
+					break;
+					
+				case Syntax.BinaryOperator.Division: 
+					GenerateIntegerDivision(ref instructions, instruction);
+					break;
+					
+				case Syntax.BinaryOperator.Remainder: 
+					GenerateIntegerRemainder(ref instructions, instruction);
+					break;
+			}
+		}
+		
+		static void GenerateSimpleBinaryOperation(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.BinaryInstruction instruction) {
+			AssemblyNode.Operand lhs = GenerateOperand(instruction.LeftOperand);
+			AssemblyNode.Operand rhs = GenerateOperand(instruction.RightOperand);
+			AssemblyNode.Operand destination = GenerateOperand(instruction.Destination);
+			
+			instructions.Add(new AssemblyNode.MOV(lhs, destination));
+			instructions.Add(new AssemblyNode.BinaryInstruction(instruction.Operator, rhs, destination));
+		}
+		
+		static void GenerateIntegerDivision(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.BinaryInstruction instruction) {
+			AssemblyNode.Operand lhs = GenerateOperand(instruction.LeftOperand);
+			AssemblyNode.Operand rhs = GenerateOperand(instruction.RightOperand);
+			AssemblyNode.Operand destination = GenerateOperand(instruction.Destination);
+			
+			instructions.Add(new AssemblyNode.MOV(lhs, RegisterType.AX.ToOperand()));
+			instructions.Add(new AssemblyNode.CDQ());
+			instructions.Add(new AssemblyNode.IDIV(rhs));
+			instructions.Add(new AssemblyNode.MOV(RegisterType.AX.ToOperand(), destination));
+		}
+		
+		static void GenerateIntegerRemainder(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.BinaryInstruction instruction) {
+			AssemblyNode.Operand lhs = GenerateOperand(instruction.LeftOperand);
+			AssemblyNode.Operand rhs = GenerateOperand(instruction.RightOperand);
+			AssemblyNode.Operand destination = GenerateOperand(instruction.Destination);
+			
+			instructions.Add(new AssemblyNode.MOV(lhs, RegisterType.AX.ToOperand()));
+			instructions.Add(new AssemblyNode.CDQ());
+			instructions.Add(new AssemblyNode.IDIV(rhs));
+			instructions.Add(new AssemblyNode.MOV(RegisterType.DX.ToOperand(), destination));
+		}
+		
 		static AssemblyNode.Operand GenerateOperand(IntermediateNode.Operand expression) {
+			Console.WriteLine(expression);
+			Console.WriteLine(expression.GetType());
 			if (expression is IntermediateNode.Constant) return GenerateConstant(expression as IntermediateNode.Constant);
 			if (expression is IntermediateNode.Variable) return GenerateVariable(expression as IntermediateNode.Variable);
+			System.Environment.Exit(1);
 			return null;
 		}
 		

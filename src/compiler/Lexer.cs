@@ -52,8 +52,14 @@ namespace FTG.Studios.MCC {
 				case Syntax.close_brace: return new Token(TokenType.CloseBrace);
 				
 				// Unary Operators
-				case Syntax.operator_negate: return new Token(TokenType.UnaryOperator, Syntax.UnaryOperator.Negate);
 				case Syntax.operator_bitwise_complement: return new Token(TokenType.UnaryOperator, Syntax.UnaryOperator.BitwiseComplement);
+				
+				// Binary Operators
+				case Syntax.operator_addition: return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Addition);
+				case Syntax.operator_subtraction: return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Subtraction);
+				case Syntax.operator_multiplication: return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Multiplication);
+				case Syntax.operator_division: return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Division);
+				case Syntax.operator_remainder: return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Remainder);
 			}
 			
 			return Token.Invalid;

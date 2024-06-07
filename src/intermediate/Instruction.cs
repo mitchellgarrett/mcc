@@ -31,5 +31,23 @@ namespace FTG.Studios.MCC {
 				return $"Unary({Operator}, {Source}, {Destination})";
 			}
 		}
+		
+		public class BinaryInstruction : Instruction {
+			public readonly Syntax.BinaryOperator Operator;
+			public readonly Operand LeftOperand;
+			public readonly Operand RightOperand;
+			public readonly Operand Destination;
+			
+			public BinaryInstruction(Syntax.BinaryOperator @operator, Operand left_operand, Operand right_operand, Operand destination) {
+				Operator = @operator;
+				LeftOperand = left_operand;
+				RightOperand = right_operand;
+				Destination = destination;
+			}
+			
+			public override string ToString() {
+				return $"Binary({Operator}, {LeftOperand}, {RightOperand}, {Destination})";
+			}
+		}
 	}
 }

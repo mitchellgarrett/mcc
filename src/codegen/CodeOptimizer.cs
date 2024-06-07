@@ -26,6 +26,7 @@ namespace FTG.Studios.MCC {
 			foreach (var instruction in function.Body) {
 				if (instruction is AssemblyNode.MOV) AssignVariablesMOV(instruction as AssemblyNode.MOV);
 				if (instruction is AssemblyNode.UnaryInstruction) AssignVariablesUnaryInstruction(instruction as AssemblyNode.UnaryInstruction);
+				if (instruction is AssemblyNode.BinaryInstruction) AssignVariablesBinaryInstruction(instruction as AssemblyNode.BinaryInstruction);
 			}
 			
 			int space_to_allocate = System.Math.Abs(stack_offset);
@@ -51,6 +52,18 @@ namespace FTG.Studios.MCC {
 			}
 		}
 		
+		static void AssignVariablesBinaryInstruction(AssemblyNode.BinaryInstruction instruction) {
+			if (instruction.Source is AssemblyNode.Variable) {
+				AssemblyNode.Variable variable = instruction.Source as AssemblyNode.Variable;
+				instruction.Source = GetStackOffset(variable.Identifier);
+			}
+			
+			if (instruction.Destination is AssemblyNode.Variable) {
+				AssemblyNode.Variable variable = instruction.Destination as AssemblyNode.Variable;
+				instruction.Destination = GetStackOffset(variable.Identifier);
+			}
+		}
+		
 		public static void FixVariableAccesses(AssemblyTree tree) {
 			AssemblyNode.Function function = tree.Program.Function;
 			FixVariableAccessesFunction(function);
@@ -59,15 +72,47 @@ namespace FTG.Studios.MCC {
 		public static void FixVariableAccessesFunction(AssemblyNode.Function function) {
 			for (int index = 0; index < function.Body.Count; index++) {
 				if (function.Body[index] is AssemblyNode.MOV) FixVariableAccessesMOV(ref function.Body, index);
+				if (function.Body[index] is AssemblyNode.BinaryInstruction) FixVariableAccessesBinaryInstruction(ref function.Body, index);
+				if (function.Body[index] is AssemblyNode.IDIV) FixVariableAccessesIDIV(ref function.Body, index);
 			}
 		}
 		
 		static void FixVariableAccessesMOV(ref List<AssemblyNode.Instruction> instructions, int index) {
+			// mov can't have memory locations as both operands
 			AssemblyNode.MOV instruction = instructions[index] as AssemblyNode.MOV;
 			if (instruction.Source is AssemblyNode.StackAccess && instruction.Destination is AssemblyNode.StackAccess) {
 				AssemblyNode.StackAccess source = instruction.Source as AssemblyNode.StackAccess;
-				instruction.Source = new AssemblyNode.Register(RegisterType.R10);
-				instructions.Insert(index, new AssemblyNode.MOV(source, new AssemblyNode.Register(RegisterType.R10)));
+				instruction.Source = RegisterType.R10.ToOperand();
+				instructions.Insert(index, new AssemblyNode.MOV(source, RegisterType.R10.ToOperand()));
+			}
+		}
+		
+		static void FixVariableAccessesIDIV(ref List<AssemblyNode.Instruction> instructions, int index) {
+			// idiv can't have immediate as operand
+			AssemblyNode.IDIV instruction = instructions[index] as AssemblyNode.IDIV;
+			if (instruction.Operand is AssemblyNode.Immediate) {
+				AssemblyNode.Immediate operand = instruction.Operand as AssemblyNode.Immediate;
+				instruction.Operand = RegisterType.R10.ToOperand();
+				instructions.Insert(index, new AssemblyNode.MOV(operand, RegisterType.R10.ToOperand()));
+			}
+		}
+		
+		static void FixVariableAccessesBinaryInstruction(ref List<AssemblyNode.Instruction> instructions, int index) {
+			AssemblyNode.BinaryInstruction instruction = instructions[index] as AssemblyNode.BinaryInstruction;
+			
+			// imul can't have destination as a memory location
+			if (instruction.Operator == Syntax.BinaryOperator.Multiplication && instruction.Destination is AssemblyNode.StackAccess) {
+				AssemblyNode.StackAccess destination = instruction.Destination as AssemblyNode.StackAccess;
+				instructions.Insert(index, new AssemblyNode.MOV(destination, RegisterType.R11.ToOperand()));
+				instruction.Destination = RegisterType.R11.ToOperand();
+				instructions.Insert(index + 2, new AssemblyNode.MOV(RegisterType.R11.ToOperand(), destination));
+			}
+			
+			// add/sub can't have both operands be memory locations
+			if (instruction.Source is AssemblyNode.StackAccess && instruction.Destination is AssemblyNode.StackAccess) {
+				AssemblyNode.StackAccess source = instruction.Source as AssemblyNode.StackAccess;
+				instruction.Source = RegisterType.R10.ToOperand();
+				instructions.Insert(index, new AssemblyNode.MOV(source, RegisterType.R10.ToOperand()));
 			}
 		}
 	}

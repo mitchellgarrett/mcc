@@ -14,7 +14,7 @@ namespace FTG.Studios.MCC {
 			}
 			
 			public override string Emit() {
-				return "%eax";
+				return Value.Emit();
 			}
 			
 			public override string ToString() {

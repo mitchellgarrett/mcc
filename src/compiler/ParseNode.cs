@@ -46,7 +46,25 @@ namespace FTG.Studios.MCC {
 		
 		public class Expression : Node { }
 		
-		public class ConstantExpression : Expression {
+		public class BinaryExpression : Expression {
+			public readonly Syntax.BinaryOperator Operator;
+			public readonly Expression LeftExpression;
+			public readonly Expression RightExpression;
+			
+			public BinaryExpression(Syntax.BinaryOperator @operator, Expression left_expression, Expression right_expression) {
+				Operator = @operator;
+				LeftExpression = left_expression;
+				RightExpression = right_expression;
+			}
+			
+			public override string ToString() {
+				return $"Unary({Operator}, {LeftExpression})".Replace("\n", "\n ");
+			}
+		}
+		
+		public class Factor : Expression { }
+		
+		public class ConstantExpression : Factor {
 			public readonly int Value;
 			
 			public ConstantExpression(int value) {
@@ -58,7 +76,7 @@ namespace FTG.Studios.MCC {
 			}
 		}
 		
-		public class UnaryExpression : Expression {
+		public class UnaryExpression : Factor {
 			public readonly Syntax.UnaryOperator Operator;
 			public readonly Expression Expression;
 			

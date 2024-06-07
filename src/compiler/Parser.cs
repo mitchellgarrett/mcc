@@ -44,31 +44,51 @@ namespace FTG.Studios.MCC
 		static ParseNode.ReturnStatement ParseReturnStatement(Queue<Token> tokens) {
 			Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.Return);
 			
-			ParseNode.Expression expression = ParseExpression(tokens);
+			ParseNode.Expression expression = ParseExpression(tokens, 0);
 			
 			Expect(tokens.Dequeue(), TokenType.Semicolon);
 			
 			return new ParseNode.ReturnStatement(expression);
 		}
 		
-		static ParseNode.Expression ParseExpression(Queue<Token> tokens) {
+		static ParseNode.Expression ParseExpression(Queue<Token> tokens, int min_precedence) {
+			ParseNode.Expression left_expression = ParseFactor(tokens);
+			
+			int current_precedence;
+			while (Match(tokens.Peek(), TokenType.BinaryOperator) && (current_precedence = ((Syntax.BinaryOperator)tokens.Peek().Value).GetPrecedence()) >= min_precedence) {
+				Token @operator = tokens.Dequeue();
+				ParseNode.Expression right_expression = ParseExpression(tokens, current_precedence + 1);
+				left_expression = new ParseNode.BinaryExpression((Syntax.BinaryOperator)@operator.Value, left_expression, right_expression);
+			}
+			
+			return left_expression;
+		}
+		
+		static ParseNode.Expression ParseFactor(Queue<Token> tokens) {
+			if (Match(tokens.Peek(), TokenType.IntegerConstant)) return ParseConstantExpression(tokens);
+			
+			if (Match(tokens.Peek(), TokenType.UnaryOperator)) return ParseUnaryExpression(tokens);
+			
 			if (Match(tokens.Peek(), TokenType.OpenParenthesis)) {
 				tokens.Dequeue();
-				ParseNode.Expression expression = ParseUnaryExpression(tokens);
+				ParseNode.Expression expression = ParseExpression(tokens, 0);
 				Expect(tokens.Dequeue(), TokenType.CloseParenthesis);
 				return expression;
 			}
 			
-			if (Match(tokens.Peek(), TokenType.UnaryOperator)) return ParseUnaryExpression(tokens);
-			
-			return ParseConstantExpression(tokens);
+			return null;
 		}
 		
 		static ParseNode.UnaryExpression ParseUnaryExpression(Queue<Token> tokens) {
 			Token @operator = tokens.Dequeue();
+			
+			// Convert binary subtraction operator to negation
+			if (Match(@operator, TokenType.BinaryOperator, Syntax.BinaryOperator.Subtraction)) {
+				@operator = new Token(TokenType.UnaryOperator, Syntax.UnaryOperator.Negation);
+			}
 			Expect(@operator, TokenType.UnaryOperator);
 			
-			ParseNode.Expression expression = ParseExpression(tokens);
+			ParseNode.Expression expression = ParseExpression(tokens, 0);
 			
 			return new ParseNode.UnaryExpression((Syntax.UnaryOperator)@operator.Value, expression);
 		}
@@ -85,13 +105,17 @@ namespace FTG.Studios.MCC
 			return new ParseNode.Identifier((string)token.Value);
 		}
 		
-		static bool Match(Token token, TokenType expected) {
-			return token.Type == expected;
+		static bool Match(Token token, TokenType expected_type) {
+			return token.Type == expected_type;
 		}
 		
-		static void Expect(Token token, TokenType expected) {
-			if (token.Type != expected) {
-				Console.WriteLine($"Expected: {expected}, got: {token}");
+		static bool Match(Token token, TokenType expected_type, object expected_value) {
+			return token.Type == expected_type && token.Value.Equals(expected_value);
+		}
+		
+		static void Expect(Token token, TokenType expected_type) {
+			if (token.Type != expected_type) {
+				Console.WriteLine($"Expected: {expected_type}, got: {token}");
 				Environment.Exit(1);
 			}
 		}
