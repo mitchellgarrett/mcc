@@ -41,9 +41,9 @@ namespace FTG.Studios.MCC {
 		/// Node to store useful comment data
 		/// </summary>
 		public class Comment : Instruction {
-			public readonly ParseNode.Node Data;
+			public readonly object Data;
 			
-			public Comment(ParseNode.Node data) {
+			public Comment(object data) {
 				Data = data;
 			}
 

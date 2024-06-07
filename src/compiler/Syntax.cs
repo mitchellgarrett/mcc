@@ -30,8 +30,17 @@ namespace FTG.Studios.MCC
 		public enum UnaryOperator { Negation, BitwiseComplement, Decrement };
 		public enum BinaryOperator { Addition, Subtraction, Multiplication, Division, Remainder };
 		
-		static readonly int[] operator_precedence = new int[] { 0, 0, 1, 1, 1 };
+		static readonly string[] unary_operators = new string[] { operator_negation.ToString(), operator_bitwise_complement.ToString(), operator_decrement };
+		public static string GetOperator(this UnaryOperator op) {
+			return unary_operators[(int)op];
+		}
 		
+		static readonly string[] binary_operators = new string[] { operator_addition.ToString(), operator_subtraction.ToString(), operator_multiplication.ToString(), operator_division.ToString(), operator_remainder.ToString() };
+		public static string GetOperator(this BinaryOperator op) {
+			return binary_operators[(int)op];
+		}
+		
+		static readonly int[] operator_precedence = new int[] { 0, 0, 1, 1, 1 };
 		public static int GetPrecedence(this BinaryOperator op) {
 			return operator_precedence[(int)op];
 		}

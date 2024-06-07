@@ -30,7 +30,10 @@ namespace FTG.Studios.MCC {
 			}
 			
 			int space_to_allocate = System.Math.Abs(stack_offset);
-			if (space_to_allocate > 0) function.Body.Insert(0, new AssemblyNode.AllocateStackInstruction(space_to_allocate));
+			if (space_to_allocate > 0) {
+				function.Body.Insert(0, new AssemblyNode.AllocateStackInstruction(space_to_allocate));
+				function.Body.Insert(0, new AssemblyNode.Comment($"Allocate {space_to_allocate} bytes"));
+			}
 		}
 		
 		static void AssignVariablesMOV(AssemblyNode.MOV instruction) {

@@ -31,9 +31,9 @@ namespace FTG.Studios.MCC {
 			
 			file.WriteLine("\tpushq %rbp");
 			file.WriteLine("\tmovq %rsp, %rbp");
-			file.WriteLine();
 			
 			foreach (var instruction in function.Body) {
+				if (instruction is AssemblyNode.Comment) file.WriteLine();
 				file.WriteLine('\t' + instruction.Emit().Replace("\n", "\n\t"));
 			}
 		}
