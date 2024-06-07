@@ -78,20 +78,20 @@ namespace FTG.Studios.MCC {
 					GenerateIntegerRemainder(ref instructions, instruction);
 					break;
 				
-				case Syntax.BinaryOperator.LogicalLessThan: 
+				case Syntax.BinaryOperator.LogicalLess: 
 					GenerateConditional(ref instructions, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, ConditionType.L);
 					break;
 				
-				case Syntax.BinaryOperator.LogicalGreatherThan: 
+				case Syntax.BinaryOperator.LogicalGreather: 
 					GenerateConditional(ref instructions, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, ConditionType.G);
 					break;
 					
-				case Syntax.BinaryOperator.LogicalLessThanEqualTo: 
-					GenerateConditional(ref instructions, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, ConditionType.GE);
+				case Syntax.BinaryOperator.LogicalLessEqual: 
+					GenerateConditional(ref instructions, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, ConditionType.LE);
 					break;
 					
-				case Syntax.BinaryOperator.LogicalGreatherThanEqualTo: 
-					GenerateConditional(ref instructions, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, ConditionType.LE);
+				case Syntax.BinaryOperator.LogicalGreatherEqual: 
+					GenerateConditional(ref instructions, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, ConditionType.GE);
 					break;
 			}
 		}
