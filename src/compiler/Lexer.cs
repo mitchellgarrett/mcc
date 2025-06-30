@@ -60,6 +60,7 @@ namespace FTG.Studios.MCC {
 				case Syntax.operator_multiplication: return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Multiplication);
 				case Syntax.operator_division: return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Division);
 				case Syntax.operator_remainder: return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Remainder);
+				case Syntax.operator_assignment: return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Assignment);
 			}
 			
 			return Token.Invalid;

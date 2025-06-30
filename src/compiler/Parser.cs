@@ -30,15 +30,42 @@ namespace FTG.Studios.MCC
 			Expect(tokens.Dequeue(), TokenType.CloseParenthesis);
 			Expect(tokens.Dequeue(), TokenType.OpenBrace);
 			
-			ParseNode.Statement body = ParseStatement(tokens);
+			List<ParseNode.BlockItem> body = new List<ParseNode.BlockItem>();
+			while (!Match(tokens.Peek(), TokenType.CloseBrace)) {
+				body.Add(ParseBlockItem(tokens));
+			}
 			
 			Expect(tokens.Dequeue(), TokenType.CloseBrace);
 			
 			return new ParseNode.Function(identifier, body);
 		}
 		
+		static ParseNode.BlockItem ParseBlockItem(Queue<Token> tokens) {
+			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Integer)) return ParseDeclaration(tokens);
+			return ParseStatement(tokens);
+		}
+		
+		static ParseNode.Declaration ParseDeclaration(Queue<Token> tokens) {
+			Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.Integer);
+			Token identifier = tokens.Dequeue();
+			Expect(identifier, TokenType.Identifier);
+			
+			// Optional initialization
+			ParseNode.Expression expression = null;
+			if (Match(tokens.Peek(), TokenType.BinaryOperator, Syntax.BinaryOperator.Assignment)) {
+				tokens.Dequeue();
+				expression = ParseExpression(tokens, 0);
+			}
+			
+			Expect(tokens.Dequeue(), TokenType.Semicolon);
+			
+			return new ParseNode.Declaration((string)identifier.Value, expression);
+		}
+		
 		static ParseNode.Statement ParseStatement(Queue<Token> tokens) {
-			return ParseReturnStatement(tokens);
+			if (Match(tokens.Peek(), TokenType.Semicolon)) return null;
+			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Return)) return ParseReturnStatement(tokens);
+			return ParseExpression(tokens, 0);
 		}
 		
 		static ParseNode.ReturnStatement ParseReturnStatement(Queue<Token> tokens) {
@@ -57,8 +84,16 @@ namespace FTG.Studios.MCC
 			int current_precedence;
 			while (Match(tokens.Peek(), TokenType.BinaryOperator) && (current_precedence = ((Syntax.BinaryOperator)tokens.Peek().Value).GetPrecedence()) >= min_precedence) {
 				Token @operator = tokens.Dequeue();
-				ParseNode.Expression right_expression = ParseExpression(tokens, current_precedence + 1);
-				left_expression = new ParseNode.BinaryExpression((Syntax.BinaryOperator)@operator.Value, left_expression, right_expression);
+
+				if (Match(tokens.Peek(), TokenType.BinaryOperator, Syntax.BinaryOperator.Assignment)) {
+					tokens.Dequeue();
+					int next_precedence = ((Syntax.BinaryOperator)tokens.Peek().Value).GetPrecedence();
+					ParseNode.Expression right_expression = ParseExpression(tokens, next_precedence);
+					left_expression = new ParseNode.Assignment(left_expression, right_expression);
+				} else {
+					ParseNode.Expression right_expression = ParseExpression(tokens, current_precedence + 1);
+					left_expression = new ParseNode.BinaryExpression((Syntax.BinaryOperator)@operator.Value, left_expression, right_expression);
+				}
 			}
 			
 			return left_expression;
@@ -93,10 +128,10 @@ namespace FTG.Studios.MCC
 			return new ParseNode.UnaryExpression((Syntax.UnaryOperator)@operator.Value, expression);
 		}
 		
-		static ParseNode.ConstantExpression ParseConstantExpression(Queue<Token> tokens) {
+		static ParseNode.Constant ParseConstantExpression(Queue<Token> tokens) {
 			Token token = tokens.Dequeue();
 			Expect(token, TokenType.IntegerConstant);
-			return new ParseNode.ConstantExpression((int)token.Value);
+			return new ParseNode.Constant((int)token.Value);
 		}
 		
 		static ParseNode.Identifier ParseIdentifier(Queue<Token> tokens) {

@@ -47,13 +47,13 @@ namespace FTG.Studios.MCC {
 		}
 		
 		static IntermediateNode.Operand GenerateExpression(ref List<IntermediateNode.Instruction> instructions, ParseNode.Expression expression) {
-			if (expression is ParseNode.ConstantExpression) return GenerateConstantExpression(expression as ParseNode.ConstantExpression);
+			if (expression is ParseNode.Constant) return GenerateConstantExpression(expression as ParseNode.Constant);
 			if (expression is ParseNode.UnaryExpression) return GenerateUnaryExpression(ref instructions, expression as ParseNode.UnaryExpression);
 			if (expression is ParseNode.BinaryExpression) return GenerateBinaryExpression(ref instructions, expression as ParseNode.BinaryExpression);
 			return null;
 		}
 		
-		static IntermediateNode.Operand GenerateConstantExpression(ParseNode.ConstantExpression expression) {
+		static IntermediateNode.Operand GenerateConstantExpression(ParseNode.Constant expression) {
 			return new IntermediateNode.Constant(expression.Value);
 		}
 		
