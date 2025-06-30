@@ -398,3 +398,7 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+programs/addition
+programs/and
+programs/precedence
+programs/return_unary
