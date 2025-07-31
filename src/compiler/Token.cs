@@ -25,6 +25,8 @@ namespace FTG.Studios.MCC {
 		
 		public override string ToString() {
 			if (Value == null) return $"{Type}";
+			if (Type == TokenType.Comment || Type == TokenType.Identifier)
+				return $"{Type}, \"{Value}\"";
 			return $"{Type}, {Value}";
 		}
 	}

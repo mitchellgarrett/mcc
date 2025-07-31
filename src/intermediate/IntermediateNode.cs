@@ -36,7 +36,7 @@ namespace FTG.Studios.MCC {
 		}
 		
 		/// <summary>
-		/// Node to store useful comment data
+		/// Node to store useful comment data that gets propogated to the final assembly file.
 		/// </summary>
 		public class Comment : Instruction {
 			public readonly object Data;
@@ -47,7 +47,7 @@ namespace FTG.Studios.MCC {
 
 			public override string ToString()
 			{
-				return $"Comment({Data})";
+				return $"Comment(\"{Data}\")";
 			}
 		}
 	}

@@ -32,13 +32,18 @@ namespace FTG.Studios.MCC
 		public const string operator_logical_greater_equal = ">=";
 		
 		public const string identifier = @"[a-zA-Z]\w*\b";
-		public const string integer_literal = @"[0-9]+\b";
+		public const string integer_literal = @"^[0-9]+\b$";
+
+		// TODO: Support comments
+		public const string single_line_comment = "//";
+		public const string multi_line_comment_begin = "/*";
+		public const string multi_line_comment_end = "*/";
 		
 		public static readonly string[] keywords = new string[] { "void", "return", "int" };
 		
 		public enum Keyword { Void, Return, Integer };
 		public enum UnaryOperator { Negation, Not, BitwiseComplement, Decrement };
-		public enum BinaryOperator { Addition, Subtraction, Multiplication, Division, Remainder, Assignment, LogicalAnd, LogicalOr, LogicalEqual, LogicalNotEqual, LogicalLess, LogicalGreather, LogicalLessEqual, LogicalGreatherEqual };
+		public enum BinaryOperator { Addition, Subtraction, Multiplication, Division, Remainder, Assignment, LogicalAnd, LogicalOr, LogicalEqual, LogicalNotEqual, LogicalLess, LogicalGreater, LogicalLessEqual, LogicalGreaterEqual };
 		
 		static readonly string[] unary_operators = new string[] { operator_negation.ToString(), operator_not.ToString(), operator_bitwise_complement.ToString(), operator_decrement };
 		public static string GetOperator(this UnaryOperator op) {

@@ -23,8 +23,9 @@ namespace FTG.Studios.MCC {
 			}
 			return new AssemblyNode.Function(identifier, instructions);
 		}
-		
-		static void GenerateInstruction(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.Instruction instruction) {
+
+		static void GenerateInstruction(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.Instruction instruction)
+		{
 			if (instruction is IntermediateNode.Comment) GenerateComment(ref instructions, instruction as IntermediateNode.Comment);
 			if (instruction is IntermediateNode.ReturnInstruction) GenerateReturnInstruction(ref instructions, instruction as IntermediateNode.ReturnInstruction);
 			if (instruction is IntermediateNode.UnaryInstruction) GenerateUnaryInstruction(ref instructions, instruction as IntermediateNode.UnaryInstruction);
@@ -60,40 +61,51 @@ namespace FTG.Studios.MCC {
 			instructions.Add(new AssemblyNode.MOV(source, destination));
 			instructions.Add(new AssemblyNode.UnaryInstruction(instruction.Operator, destination));
 		}
-		
-		static void GenerateBinaryInstruction(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.BinaryInstruction instruction) {
+
+		static void GenerateBinaryInstruction(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.BinaryInstruction instruction)
+		{
 			switch (instruction.Operator)
 			{
-				case Syntax.BinaryOperator.Addition: 
-				case Syntax.BinaryOperator.Subtraction: 
-				case Syntax.BinaryOperator.Multiplication: 
+				case Syntax.BinaryOperator.Addition:
+				case Syntax.BinaryOperator.Subtraction:
+				case Syntax.BinaryOperator.Multiplication:
 					GenerateSimpleBinaryOperation(ref instructions, instruction);
-					break;
-					
-				case Syntax.BinaryOperator.Division: 
+					return;
+
+				case Syntax.BinaryOperator.Division:
 					GenerateIntegerDivision(ref instructions, instruction);
-					break;
-					
-				case Syntax.BinaryOperator.Remainder: 
+					return;
+
+				case Syntax.BinaryOperator.Remainder:
 					GenerateIntegerRemainder(ref instructions, instruction);
-					break;
-				
-				case Syntax.BinaryOperator.LogicalLess: 
+					return;
+
+				case Syntax.BinaryOperator.LogicalLess:
 					GenerateConditional(ref instructions, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, ConditionType.L);
-					break;
-				
-				case Syntax.BinaryOperator.LogicalGreather: 
+					return;
+
+				case Syntax.BinaryOperator.LogicalGreater:
 					GenerateConditional(ref instructions, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, ConditionType.G);
-					break;
-					
-				case Syntax.BinaryOperator.LogicalLessEqual: 
+					return;
+
+				case Syntax.BinaryOperator.LogicalLessEqual:
 					GenerateConditional(ref instructions, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, ConditionType.LE);
-					break;
-					
-				case Syntax.BinaryOperator.LogicalGreatherEqual: 
+					return;
+
+				case Syntax.BinaryOperator.LogicalGreaterEqual:
 					GenerateConditional(ref instructions, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, ConditionType.GE);
-					break;
+					return;
+
+				case Syntax.BinaryOperator.LogicalEqual:
+					GenerateConditional(ref instructions, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, ConditionType.E);
+					return;
+				
+				case Syntax.BinaryOperator.LogicalNotEqual:
+					GenerateConditional(ref instructions, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, ConditionType.NE);
+					return;
 			}
+
+			throw new Exception();
 		}
 		
 		static void GenerateSimpleBinaryOperation(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.BinaryInstruction instruction) {
@@ -156,11 +168,9 @@ namespace FTG.Studios.MCC {
 			instructions.Add(new AssemblyNode.Label(instruction.Identifier));
 		}
 		
-		static AssemblyNode.Operand GenerateOperand(IntermediateNode.Operand expression) {
-			Console.WriteLine(expression);
-			Console.WriteLine(expression.GetType());
-			if (expression is IntermediateNode.Constant) return GenerateConstant(expression as IntermediateNode.Constant);
-			if (expression is IntermediateNode.Variable) return GenerateVariable(expression as IntermediateNode.Variable);
+		static AssemblyNode.Operand GenerateOperand(IntermediateNode.Operand operand) {
+			if (operand is IntermediateNode.Constant constant) return GenerateConstant(constant);
+			if (operand is IntermediateNode.Variable variable) return GenerateVariable(variable);
 			System.Environment.Exit(1);
 			return null;
 		}

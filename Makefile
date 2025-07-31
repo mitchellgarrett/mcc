@@ -23,7 +23,7 @@ run:
 	@make asm
 	@make exe
 	@echo "Running executeable..."
-	@./$(EXE_FILE) || echo $$?
+	@$(EXE_FILE) || echo $$?
 
 .PHONY: ref_asm
 ref_asm:

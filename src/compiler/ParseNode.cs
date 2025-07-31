@@ -28,23 +28,29 @@ namespace FTG.Studios.MCC {
 			}
 			
 			public override string ToString() {
-				return $"Function(\nIdentifier=\"{Identifier}\"\nBody(\n{Body}\n)".Replace("\n", "\n ") + "\n)";
+				string body_text = " ";
+				foreach (BlockItem item in Body)
+					body_text += (item.ToString() + '\n').Replace("\n", "\n ");
+				return $"Function(\nIdentifier=\"{Identifier}\"\nBody(\n{body_text}\n)".Replace("\n", "\n ") + "\n)";
 			}
 		}
 		
 		public class BlockItem : Node { }
 		
 		public class Declaration : BlockItem {
-			public readonly string Identifier;
+			public readonly Identifier Identifier;
 			public readonly Expression Source;
 			
-			public Declaration(string identifier, Expression source) {
+			public Declaration(Identifier identifier, Expression source) {
 				Identifier = identifier;
 				Source = source;
 			}
-			
-			public override string ToString() {
-				return $"Assignment({Identifier}, {Source})";
+
+			public override string ToString()
+			{
+				if (Source != null)
+					return $"Declaration({Identifier}, {Source})";
+				return $"Declaration({Identifier})";
 			}
 		}
 		
@@ -76,7 +82,7 @@ namespace FTG.Studios.MCC {
 			}
 			
 			public override string ToString() {
-				return $"Unary({Operator}, {LeftExpression}, {RightExpression})".Replace("\n", "\n ");
+				return $"Binary({Operator}, {LeftExpression}, {RightExpression})".Replace("\n", "\n ");
 			}
 		}
 		
@@ -106,7 +112,7 @@ namespace FTG.Studios.MCC {
 			}
 		}
 		
-		public class Assignment : Factor {
+		public class Assignment : Expression {
 			public readonly Expression Destination;
 			public readonly Expression Source;
 			

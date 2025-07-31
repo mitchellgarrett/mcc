@@ -59,18 +59,17 @@ class Application {
 		
 		Console.WriteLine("-------------");
 		
-		Console.WriteLine("--------");
-		Console.WriteLine("Optimzer");
-		Console.WriteLine("--------");
+		Console.WriteLine("---------");
+		Console.WriteLine("Optimizer");
+		Console.WriteLine("---------");
 		
 		CodeOptimizer.AssignVariables(assembly_tree);
 		CodeOptimizer.FixVariableAccesses(assembly_tree);
 		Console.WriteLine(assembly_tree);
 		
 		Console.WriteLine("--------");
-		
-		using (StreamWriter output_file = new StreamWriter(output_path)) {
-			CodeEmitter.Emit(assembly_tree, output_file);
-		}
+
+		using StreamWriter output_file = new StreamWriter(output_path);
+		CodeEmitter.Emit(assembly_tree, output_file);
 	}
 }
