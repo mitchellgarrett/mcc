@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
@@ -41,10 +40,13 @@ namespace FTG.Studios.MCC {
 				
 				if (token.IsValid)
 				{
-					Token current_token = BuildToken(lexeme);
-					if (current_token.IsValid)
+					if (!string.IsNullOrEmpty(lexeme))
 					{
-						tokens.Add(current_token);
+						Token current_token = BuildToken(lexeme);
+						if (current_token.IsValid)
+						{
+							tokens.Add(current_token);
+						}
 					}
 					tokens.Add(token);
 					lexeme = string.Empty;
@@ -108,8 +110,9 @@ namespace FTG.Studios.MCC {
 			{
 				return new Token(TokenType.IntegerConstant, int.Parse(lexeme));
 			}
-			
-			return Token.Invalid;
+
+			// At this point we know the lexeme is invalid since it wasn't a valid identifier or constant
+			throw new LexerException($"Invalid lexeme: \'{lexeme}\'", lexeme);
 		}
 
 		static Token BuildOperatorToken(string lexeme)

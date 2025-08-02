@@ -46,4 +46,4 @@ CHAPTER ?= 1
 STAGE ?= run
 .PHONY: test
 test:
-	./deps/writing-a-c-compiler-tests/test_compiler mcc --chapter $(CHAPTER) --stage $(STAGE) --skip-invalid
+	./deps/writing-a-c-compiler-tests/test_compiler mcc --chapter $(CHAPTER) --stage $(STAGE)

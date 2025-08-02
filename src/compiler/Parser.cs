@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace FTG.Studios.MCC
 {
@@ -9,6 +10,9 @@ namespace FTG.Studios.MCC
 		public static ParseTree Parse(List<Token> tokens) {
 			Queue<Token> stream = new Queue<Token>(tokens);
 			ParseNode.Program program = ParseProgram(stream);
+
+			if (stream.Count > 0) throw new ParserException($"Unexpected token at end of file: {stream.First()}", stream.First());
+			
 			return new ParseTree(program);
 		}
 		
@@ -216,15 +220,13 @@ namespace FTG.Studios.MCC
 		
 		static void Expect(Token token, TokenType expected_type) {
 			if (token.Type != expected_type) {
-				Console.WriteLine($"Expected: {expected_type}, got: {token}");
-				Environment.Exit(1);
+				throw new ParserException($"Expected: {expected_type}, got: {token}", token);
 			}
 		}
 		
 		static void Expect(Token token, TokenType expected_type, object expected_value) {
 			if (token.Type != expected_type || !token.Value.Equals(expected_value)) {
-				Console.WriteLine($"Expected: {expected_type}, {expected_value}, got: {token}");
-				Environment.Exit(1);
+				throw new ParserException($"Expected: {expected_type}, {expected_value}, got: {token}", token);
 			}
 		}
 	}

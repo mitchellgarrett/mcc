@@ -26,18 +26,36 @@ class Application {
 		Console.WriteLine("------");
 		Console.WriteLine("Tokens");
 		Console.WriteLine("------");
-		
-		List<Token> tokens = Lexer.Tokenize(source);
-		foreach (var token in tokens) Console.WriteLine(token);
+
+		List<Token> tokens = null;
+		try
+		{
+			tokens = Lexer.Tokenize(source);
+			foreach (var token in tokens) Console.WriteLine(token);
+		}
+		catch (LexerException e)
+		{
+			Console.Error.WriteLine(e.Message);
+			Environment.Exit(1);
+		}
 		
 		Console.WriteLine("------\n");
 		
 		Console.WriteLine("----------");
 		Console.WriteLine("Parse Tree");
 		Console.WriteLine("----------");
-		
-		ParseTree parse_tree = Parser.Parse(tokens);
-		Console.WriteLine(parse_tree);
+
+		ParseTree parse_tree = null;
+		try
+		{
+			parse_tree = Parser.Parse(tokens);
+			Console.WriteLine(parse_tree);
+		}
+		catch (ParserException e)
+		{
+			Console.Error.WriteLine(e.Message);
+			Environment.Exit(1);
+		}
 		
 		Console.WriteLine("----------\n");
 
