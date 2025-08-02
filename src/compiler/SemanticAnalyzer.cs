@@ -1,17 +1,29 @@
+using System;
 using System.Collections.Generic;
 
-namespace FTG.Studios.MCC {
+namespace FTG.Studios.MCC
+{
 
 	public static class SemanticAnalzyer
 	{
 
 		static int next_temporary_variable_index;
-		static string NextTemporaryVariable
-		{
-			get { return $"unique.{next_temporary_variable_index++}"; }
-		}
 
 		static readonly Dictionary<string, string> variable_names = new Dictionary<string, string>();
+
+		static string InsertUniqueIdentifier(string original_identifier)
+		{
+			if (variable_names.ContainsKey(original_identifier)) throw new Exception($"Variable \"{original_identifier}\" is already defined.");
+			string unique_identifier = $"{original_identifier}.{next_temporary_variable_index++}";
+			variable_names[original_identifier] = unique_identifier;
+			return unique_identifier;
+		}
+
+		static string GetUniqueIdentifier(string original_identifier)
+		{
+			if (variable_names.TryGetValue(original_identifier, out string unique_identifier)) return unique_identifier;
+			throw new Exception($"Variable \"{original_identifier}\" is not defined.");
+		}
 
 		public static void ResolveVariables(ParseTree tree)
 		{
@@ -31,9 +43,7 @@ namespace FTG.Studios.MCC {
 
 		static ParseNode.Declaration ResolveVariablesInDeclaration(ParseNode.Declaration declaration)
 		{
-			if (variable_names.ContainsKey(declaration.Identifier.Value)) System.Environment.Exit(1);
-			string unique_identifier = NextTemporaryVariable;
-			variable_names.Add(declaration.Identifier.Value, unique_identifier);
+			string unique_identifier = InsertUniqueIdentifier(declaration.Identifier.Value);
 
 			ParseNode.Expression resolved_initialization = null;
 			if (declaration.Source != null) resolved_initialization = ResolveVariablesInExpression(declaration.Source);
@@ -52,9 +62,8 @@ namespace FTG.Studios.MCC {
 			{
 				return ResolveVariablesInExpression(expression);
 			}
-			
-			System.Environment.Exit(1);
-			return null;
+
+			throw new Exception($"Unhandled statement type \"{statement}\"");
 		}
 
 		static ParseNode.Expression ResolveVariablesInExpression(ParseNode.Expression expression)
@@ -62,19 +71,30 @@ namespace FTG.Studios.MCC {
 			if (expression is ParseNode.Assignment assignment)
 			{
 				// Assignment definition must be a variable to be resolved
-				if (!(assignment.Destination is ParseNode.Variable)) System.Environment.Exit(1);
+				if (!(assignment.Destination is ParseNode.Variable)) throw new Exception($"Assignment destination is not a variable ({assignment}).");
 				return new ParseNode.Assignment(ResolveVariablesInExpression(assignment.Destination), ResolveVariablesInExpression(assignment.Source));
 			}
 
-			if (expression is ParseNode.Variable variable)
+			if (expression is ParseNode.BinaryExpression binary) return new ParseNode.BinaryExpression(binary.Operator, ResolveVariablesInExpression(binary.LeftExpression), ResolveVariablesInExpression(binary.RightExpression));
+			if (expression is ParseNode.Factor factor) return ResolveVariablesInFactor(factor);
+
+			throw new Exception($"Unhandled expression type \"{expression}\"");
+		}
+
+		static ParseNode.Factor ResolveVariablesInFactor(ParseNode.Factor factor)
+		{
+			if (factor is ParseNode.Variable variable)
 			{
 				// Variable must be defined in order to be resolved
-				if (!variable_names.ContainsKey(variable.Identifier.Value)) System.Environment.Exit(1);
-				return new ParseNode.Variable(new ParseNode.Identifier(variable_names[variable.Identifier.Value]));
+				string unique_identifier = GetUniqueIdentifier(variable.Identifier.Value);
+				Console.WriteLine(unique_identifier);
+				return new ParseNode.Variable(new ParseNode.Identifier(unique_identifier));
 			}
-			
-			System.Environment.Exit(1);
-			return null;
+
+			if (factor is ParseNode.UnaryExpression unary) return new ParseNode.UnaryExpression(unary.Operator, ResolveVariablesInExpression(unary.Expression));
+			if (factor is ParseNode.Constant constant) return constant;
+
+			throw new Exception($"Unhandled factor type \"{factor}\"");
 		}
 	}
 }

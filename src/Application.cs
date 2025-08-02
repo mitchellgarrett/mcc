@@ -40,6 +40,15 @@ class Application {
 		Console.WriteLine(parse_tree);
 		
 		Console.WriteLine("----------\n");
+
+		Console.WriteLine("-------------------");
+		Console.WriteLine("Resolved Parse Tree");
+		Console.WriteLine("-------------------");
+
+		SemanticAnalzyer.ResolveVariables(parse_tree);
+		Console.WriteLine(parse_tree);
+		
+		Console.WriteLine("-------------------\n");
 		
 		Console.WriteLine("-----------------");
 		Console.WriteLine("Intermediate Tree");
