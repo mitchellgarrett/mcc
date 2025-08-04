@@ -174,7 +174,7 @@ namespace FTG.Studios.MCC
 				return expression;
 			}
 
-			return null;
+			throw new ParserException($"Expected: constant or variable, got: {tokens.Peek()}", tokens.Peek());
 		}
 		
 		static ParseNode.UnaryExpression ParseUnaryExpression(Queue<Token> tokens) {
