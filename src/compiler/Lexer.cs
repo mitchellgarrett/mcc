@@ -72,17 +72,21 @@ namespace FTG.Studios.MCC {
 				Syntax.open_brace => new Token(TokenType.OpenBrace),
 				Syntax.close_brace => new Token(TokenType.CloseBrace),
 
-				// Unary Operators
+				// Unary operators
 				Syntax.operator_not => new Token(TokenType.UnaryOperator, Syntax.UnaryOperator.Not),
 				Syntax.operator_bitwise_complement => new Token(TokenType.UnaryOperator, Syntax.UnaryOperator.BitwiseComplement),
 
-				// Binary Operators
+				// Binary operators
 				Syntax.operator_addition => new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Addition),
 				Syntax.operator_subtraction => new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Subtraction),
 				Syntax.operator_multiplication => new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Multiplication),
 				Syntax.operator_division => new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Division),
 				Syntax.operator_remainder => new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Remainder),
 				Syntax.operator_assignment => new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Assignment),
+
+				// Ternary operators
+				Syntax.operator_ternary_true => new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.ConditionalTrue),
+				Syntax.operator_ternary_false => new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.ConditionalFalse),
 
 				_ => Token.Invalid,
 			};

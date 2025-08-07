@@ -54,9 +54,13 @@ namespace FTG.Studios.MCC {
 			if (declaration.Source != null) source = GenerateExpression(ref instructions, declaration.Source);
 			
 			IntermediateNode.Operand destination = new IntermediateNode.Variable(declaration.Identifier.Value);
-			
+
 			// Copy initialization value to destination
-			if (source != null) instructions.Add(new IntermediateNode.Copy(source, destination));
+			if (source != null)
+			{
+				instructions.Add(new IntermediateNode.Comment($"{destination.ToCommentString()} = {source.ToCommentString()}"));
+				instructions.Add(new IntermediateNode.Copy(source, destination));
+			}
 		}
 
 		static void GenerateStatement(ref List<IntermediateNode.Instruction> instructions, ParseNode.Statement statement)
@@ -65,6 +69,11 @@ namespace FTG.Studios.MCC {
 			if (statement is ParseNode.ReturnStatement return_statement)
 			{
 				GenerateReturnStatement(ref instructions, return_statement);
+				return;
+			}
+			if (statement is ParseNode.IfStatement if_statement)
+			{
+				GenerateIfStatement(ref instructions, if_statement);
 				return;
 			}
 			if (statement is ParseNode.Expression expression)
@@ -81,12 +90,63 @@ namespace FTG.Studios.MCC {
 			instructions.Add(new IntermediateNode.Comment($"return {value.ToCommentString()}"));
 			instructions.Add(new IntermediateNode.ReturnInstruction(value));
 		}
+
+		static void GenerateIfStatement(ref List<IntermediateNode.Instruction> instructions, ParseNode.IfStatement statement)
+		{
+			if (statement.Else == null)
+			{
+				GenerateIfStatementWithoutElse(ref instructions, statement);
+				return;
+			}
+			
+			GenerateIfStatementWithElse(ref instructions, statement);
+			
+			
+			
+		}
+
+		static void GenerateIfStatementWithoutElse(ref List<IntermediateNode.Instruction> instructions, ParseNode.IfStatement statement)
+		{
+			int comment_index = instructions.Count;
+			IntermediateNode.Operand condition = GenerateExpression(ref instructions, statement.Condition);
+			instructions.Insert(comment_index, new IntermediateNode.Comment($"compare {condition.ToCommentString()}"));
+
+			IntermediateNode.Label end_label = NextTemporaryLabel;
+			instructions.Add(new IntermediateNode.JumpIfZero(end_label.Identifier, condition));
+			
+			instructions.Add(new IntermediateNode.Comment("then"));
+			GenerateStatement(ref instructions, statement.Then);
+			instructions.Add(end_label);
+		}
+
+		static void GenerateIfStatementWithElse(ref List<IntermediateNode.Instruction> instructions, ParseNode.IfStatement statement)
+		{
+			int comment_index = instructions.Count;
+			IntermediateNode.Operand condition = GenerateExpression(ref instructions, statement.Condition);
+			instructions.Insert(comment_index, new IntermediateNode.Comment($"compare {condition.ToCommentString()}"));
+
+			IntermediateNode.Label else_label = NextTemporaryLabel;
+			instructions.Add(new IntermediateNode.JumpIfZero(else_label.Identifier, condition));
+			
+			instructions.Add(new IntermediateNode.Comment("then"));
+			GenerateStatement(ref instructions, statement.Then);
+			IntermediateNode.Label end_label = NextTemporaryLabel;
+			instructions.Add(new IntermediateNode.Jump(end_label.Identifier));
+			
+			instructions.Add(new IntermediateNode.Comment("otherwise"));
+			instructions.Add(else_label);
+			GenerateStatement(ref instructions, statement.Else);
+			instructions.Add(end_label);
+
+		}
 		
-		static IntermediateNode.Operand GenerateExpression(ref List<IntermediateNode.Instruction> instructions, ParseNode.Expression expression) {
+		static IntermediateNode.Operand GenerateExpression(ref List<IntermediateNode.Instruction> instructions, ParseNode.Expression expression)
+		{
 			if (expression is ParseNode.Factor factor) return GenerateFactor(ref instructions, factor);
 			if (expression is ParseNode.BinaryExpression binary) return GenerateBinaryExpression(ref instructions, binary);
 			if (expression is ParseNode.Assignment assignment) return GenerateAssignment(ref instructions, assignment);
-			
+			if (expression is ParseNode.ConditionalExpression conditional) return GenerateConditional(ref instructions, conditional);
+
 			throw new IntermediateGeneratorException("GenerateExpression", expression.GetType(), expression, typeof(ParseNode.Factor), typeof(ParseNode.BinaryExpression));
 		}
 
@@ -126,10 +186,34 @@ namespace FTG.Studios.MCC {
 			IntermediateNode.Operand destination = GenerateExpression(ref instructions, assignment.Destination);
 			
 			instructions.Add(new IntermediateNode.Comment($"{destination.ToCommentString()} = {source.ToCommentString()}"));
-			
 			instructions.Add(new IntermediateNode.Copy(source, destination));
 
 			return destination;
+		}
+
+		static IntermediateNode.Operand GenerateConditional(ref List<IntermediateNode.Instruction> instructions, ParseNode.ConditionalExpression conditional)
+		{
+			int comment_index = instructions.Count;
+			IntermediateNode.Operand condition = GenerateExpression(ref instructions, conditional.Condition);
+			instructions.Insert(comment_index, new IntermediateNode.Comment($"compare {condition.ToCommentString()}"));
+
+			IntermediateNode.Label else_label = NextTemporaryLabel;
+			instructions.Add(new IntermediateNode.JumpIfZero(else_label.Identifier, condition));
+
+			instructions.Add(new IntermediateNode.Comment("then"));
+			IntermediateNode.Operand then_value = GenerateExpression(ref instructions, conditional.Then);
+			IntermediateNode.Variable result = NextTemporaryVariable;
+			instructions.Add(new IntermediateNode.Copy(then_value, result));
+			IntermediateNode.Label end_label = NextTemporaryLabel;
+			instructions.Add(new IntermediateNode.Jump(end_label.Identifier));
+			
+			instructions.Add(new IntermediateNode.Comment("otherwise"));
+			instructions.Add(else_label);
+			IntermediateNode.Operand else_value = GenerateExpression(ref instructions, conditional.Else);
+			instructions.Add(new IntermediateNode.Copy(else_value, result));
+			instructions.Add(end_label);
+
+			return result;
 		}
 		
 		static IntermediateNode.Operand GenerateLogicalAndExpression(ref List<IntermediateNode.Instruction> instructions, ParseNode.BinaryExpression expression)

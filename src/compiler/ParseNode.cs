@@ -67,6 +67,25 @@ namespace FTG.Studios.MCC {
 				return $"Return(\n{Expression}".Replace("\n", "\n ") + "\n)";
 			}
 		}
+
+		public class IfStatement : Statement
+		{
+			public readonly Expression Condition;
+			public readonly Statement Then;
+			public readonly Statement Else;
+
+			public IfStatement(Expression condition, Statement then, Statement @else)
+			{
+				Condition = condition;
+				Then = then;
+				Else = @else;
+			}
+
+			public override string ToString()
+			{
+				return $"If({Condition}, {Then}, {Else})".Replace("\n", "\n ");
+			}
+		}
 		
 		public class Expression : Statement { }
 		
@@ -83,6 +102,25 @@ namespace FTG.Studios.MCC {
 			
 			public override string ToString() {
 				return $"Binary({Operator}, {LeftExpression}, {RightExpression})".Replace("\n", "\n ");
+			}
+		}
+
+		public class ConditionalExpression : Expression
+		{
+			public readonly Expression Condition;
+			public readonly Expression Then;
+			public readonly Expression Else;
+			
+			public ConditionalExpression(Expression condition, Expression then, Expression @else)
+			{
+				Condition = condition;
+				Then = then;
+				Else = @else;
+			}
+
+			public override string ToString()
+			{
+				return $"Conditional({Condition}, {Then}, {Else})".Replace("\n", "\n ");
 			}
 		}
 		

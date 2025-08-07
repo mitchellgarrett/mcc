@@ -96,7 +96,10 @@ namespace FTG.Studios.MCC
 		}
 		
 		/// <summary>
-		/// Statement ::= "return" Expression ";" | Expression ";" | ";"
+		/// Statement ::= "return" Expression ";" 
+		/// | Expression ";" 
+		/// | "if" "(" Expression ")" Statement [ "else" Statement ]
+		/// | ";"
 		/// </summary>
 		/// <param name="tokens"></param>
 		/// <returns></returns>
@@ -107,7 +110,10 @@ namespace FTG.Studios.MCC
 				tokens.Dequeue();
 				return null;
 			}
+			
 			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Return)) return ParseReturnStatement(tokens);
+			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.If)) return ParseIfStatement(tokens);
+			
 			ParseNode.Expression expression = ParseExpression(tokens, 0);
 			Expect(tokens.Dequeue(), TokenType.Semicolon);
 			return expression;
@@ -123,8 +129,27 @@ namespace FTG.Studios.MCC
 			return new ParseNode.ReturnStatement(expression);
 		}
 		
+		static ParseNode.IfStatement ParseIfStatement(Queue<Token> tokens) {
+			Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.If);
+			Expect(tokens.Dequeue(), TokenType.OpenParenthesis);
+			
+			ParseNode.Expression condition = ParseExpression(tokens, 0);
+			
+			Expect(tokens.Dequeue(), TokenType.CloseParenthesis);
+
+			ParseNode.Statement then = ParseStatement(tokens);
+
+			ParseNode.Statement @else = null;
+			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Else)) {
+				tokens.Dequeue();
+				@else = ParseStatement(tokens);
+			}
+
+			return new ParseNode.IfStatement(condition, then, @else);
+		}
+		
 		/// <summary>
-		/// Expression ::= Factor | Expression BinaryOperator Expression
+		/// Expression ::= Factor | Expression BinaryOperator Expression | Expression "?" Expression ":" Expression
 		/// </summary>
 		/// <param name="tokens"></param>
 		/// <param name="min_precedence"></param>
@@ -142,6 +167,16 @@ namespace FTG.Studios.MCC
 				{
 					ParseNode.Expression right_expression = ParseExpression(tokens, current_precedence);
 					left_expression = new ParseNode.Assignment(left_expression, right_expression);
+				}
+				else if (Match(@operator, TokenType.BinaryOperator, Syntax.BinaryOperator.ConditionalTrue))
+				{
+					ParseNode.Expression then_expression = ParseExpression(tokens, 0);
+					Console.WriteLine(then_expression);
+
+					Expect(tokens.Dequeue(), TokenType.BinaryOperator, Syntax.BinaryOperator.ConditionalFalse);
+					
+					ParseNode.Expression else_expression = ParseExpression(tokens, current_precedence);
+					left_expression = new ParseNode.ConditionalExpression(left_expression, then_expression, else_expression);
 				}
 				else
 				{

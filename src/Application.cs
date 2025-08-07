@@ -63,8 +63,16 @@ class Application {
 		Console.WriteLine("Resolved Parse Tree");
 		Console.WriteLine("-------------------");
 
-		SemanticAnalzyer.ResolveVariables(parse_tree);
-		Console.WriteLine(parse_tree);
+		try
+		{
+			SemanticAnalzyer.ResolveVariables(parse_tree);
+			Console.WriteLine(parse_tree);
+		}
+		catch (SemanticAnalzyerException e)
+		{
+			Console.Error.WriteLine(e.Message);
+			Environment.Exit(1);
+		}
 		
 		Console.WriteLine("-------------------\n");
 		
