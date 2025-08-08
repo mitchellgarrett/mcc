@@ -30,15 +30,21 @@ namespace FTG.Studios.MCC {
 		static IntermediateNode.Function GenerateFunction(ParseNode.Function function) {
 			string identifier = function.Identifier.Value;
 			List<IntermediateNode.Instruction> instructions = new List<IntermediateNode.Instruction>();
-			foreach (ParseNode.BlockItem item in function.Body)
-			{
-				GenerateBlockItem(ref instructions, item);
-			}
+
+			GenerateBlock(ref instructions, function.Body);
 
 			// Add Return(0) to the end of every function in case there is no explicit return given
 			GenerateReturnStatement(ref instructions, new ParseNode.ReturnStatement(new ParseNode.Constant(0)));
 			
 			return new IntermediateNode.Function(identifier, instructions.ToArray());
+		}
+
+		static void GenerateBlock(ref List<IntermediateNode.Instruction> instructions, ParseNode.Block block)
+		{
+			foreach (ParseNode.BlockItem item in block.Items)
+			{
+				GenerateBlockItem(ref instructions, item);
+			}
 		}
 
 		static void GenerateBlockItem(ref List<IntermediateNode.Instruction> instructions, ParseNode.BlockItem item)
@@ -74,6 +80,11 @@ namespace FTG.Studios.MCC {
 			if (statement is ParseNode.IfStatement if_statement)
 			{
 				GenerateIfStatement(ref instructions, if_statement);
+				return;
+			}
+			if (statement is ParseNode.Block block)
+			{
+				GenerateBlock(ref instructions, block);
 				return;
 			}
 			if (statement is ParseNode.Expression expression)

@@ -28,7 +28,7 @@ namespace FTG.Studios.MCC
 		}
 		
 		/// <summary>
-		/// Function ::= "int" Identifier "(" "void" ")" "{" { BlockItem } "}"
+		/// Function ::= "int" Identifier "(" "void" ")" Block
 		/// </summary>
 		/// <param name="tokens"></param>
 		/// <returns></returns>
@@ -43,16 +43,8 @@ namespace FTG.Studios.MCC
 			Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.Void);
 
 			Expect(tokens.Dequeue(), TokenType.CloseParenthesis);
-			Expect(tokens.Dequeue(), TokenType.OpenBrace);
 
-			List<ParseNode.BlockItem> body = new List<ParseNode.BlockItem>();
-			while (!Match(tokens.Peek(), TokenType.CloseBrace))
-			{
-				ParseNode.BlockItem item = ParseBlockItem(tokens);
-				if (item != null) body.Add(item);
-			}
-
-			Expect(tokens.Dequeue(), TokenType.CloseBrace);
+			ParseNode.Block body = ParseBlock(tokens);
 
 			return new ParseNode.Function(identifier, body);
 		}
@@ -99,6 +91,7 @@ namespace FTG.Studios.MCC
 		/// Statement ::= "return" Expression ";" 
 		/// | Expression ";" 
 		/// | "if" "(" Expression ")" Statement [ "else" Statement ]
+		/// | "{" { BlockItem } "}"
 		/// | ";"
 		/// </summary>
 		/// <param name="tokens"></param>
@@ -113,6 +106,7 @@ namespace FTG.Studios.MCC
 			
 			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Return)) return ParseReturnStatement(tokens);
 			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.If)) return ParseIfStatement(tokens);
+			if (Match(tokens.Peek(), TokenType.OpenBrace)) return ParseBlock(tokens);
 			
 			ParseNode.Expression expression = ParseExpression(tokens, 0);
 			Expect(tokens.Dequeue(), TokenType.Semicolon);
@@ -148,6 +142,22 @@ namespace FTG.Studios.MCC
 			return new ParseNode.IfStatement(condition, then, @else);
 		}
 		
+		static ParseNode.Block ParseBlock(Queue<Token> tokens)
+		{
+			Expect(tokens.Dequeue(), TokenType.OpenBrace);
+			
+			List<ParseNode.BlockItem> items = new List<ParseNode.BlockItem>();
+			while (!Match(tokens.Peek(), TokenType.CloseBrace))
+			{
+				ParseNode.BlockItem item = ParseBlockItem(tokens);
+				if (item != null) items.Add(item);
+			}
+
+			Expect(tokens.Dequeue(), TokenType.CloseBrace);
+
+			return new ParseNode.Block(items);
+		}
+		
 		/// <summary>
 		/// Expression ::= Factor | Expression BinaryOperator Expression | Expression "?" Expression ":" Expression
 		/// </summary>
@@ -174,7 +184,7 @@ namespace FTG.Studios.MCC
 					Console.WriteLine(then_expression);
 
 					Expect(tokens.Dequeue(), TokenType.BinaryOperator, Syntax.BinaryOperator.ConditionalFalse);
-					
+
 					ParseNode.Expression else_expression = ParseExpression(tokens, current_precedence);
 					left_expression = new ParseNode.ConditionalExpression(left_expression, then_expression, else_expression);
 				}

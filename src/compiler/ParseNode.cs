@@ -20,18 +20,15 @@ namespace FTG.Studios.MCC {
 		
 		public class Function : Node {
 			public readonly Identifier Identifier;
-			public readonly List<BlockItem> Body;
+			public readonly Block Body;
 			
-			public Function(Identifier identifier, List<BlockItem> body) {
+			public Function(Identifier identifier, Block body) {
 				Identifier = identifier;
 				Body = body;
 			}
 			
 			public override string ToString() {
-				string body_text = " ";
-				foreach (BlockItem item in Body)
-					body_text += (item.ToString() + '\n').Replace("\n", "\n ");
-				return $"Function(\nIdentifier=\"{Identifier}\"\nBody(\n{body_text}\n)".Replace("\n", "\n ") + "\n)";
+				return $"Function(\nIdentifier=\"{Identifier}\"\nBody(\n{Body}\n)".Replace("\n", "\n ") + "\n)";
 			}
 		}
 		
@@ -84,6 +81,23 @@ namespace FTG.Studios.MCC {
 			public override string ToString()
 			{
 				return $"If({Condition}, {Then}, {Else})".Replace("\n", "\n ");
+			}
+		}
+		
+		public class Block : Statement
+		{
+			public readonly List<BlockItem> Items;
+
+			public Block(List<BlockItem> items)
+			{
+				Items = items;
+			}
+			
+			public override string ToString() {
+				string body_text = " ";
+				foreach (BlockItem item in Items)
+					body_text += (item.ToString() + '\n').Replace("\n", "\n ");
+				return $"{body_text}\n)".Replace("\n", "\n ") + "\n)";
 			}
 		}
 		
