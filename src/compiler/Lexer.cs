@@ -6,14 +6,19 @@ namespace FTG.Studios.MCC {
 	public static class Lexer
 	{
 
+		static int current_line;
+		
 		public static List<Token> Tokenize(string source)
 		{
+			current_line = 1;
 			List<Token> tokens = new List<Token>();
 			string lexeme = string.Empty;
 			for (int index = 0; index < source.Length; index++)
 			{
 				char c = source[index];
 
+				if (c == '\n') current_line++;
+				
 				if (char.IsWhiteSpace(c))
 				{
 					if (!string.IsNullOrEmpty(lexeme))
@@ -25,7 +30,7 @@ namespace FTG.Studios.MCC {
 				}
 
 				char next = index + 1 < source.Length ? source[index + 1] : '\0';
-				
+
 				// Check if current character plus next character is a valid operator
 				// Takes care of '==' being parsed into two '=' tokens
 				Token token = BuildOperatorToken(c.ToString() + next);
@@ -37,7 +42,7 @@ namespace FTG.Studios.MCC {
 				{
 					token = BuildToken(c);
 				}
-				
+
 				if (token.IsValid)
 				{
 					if (!string.IsNullOrEmpty(lexeme))
@@ -66,29 +71,29 @@ namespace FTG.Studios.MCC {
 			return lexeme switch
 			{
 				// Puncuation
-				Syntax.semicolon => new Token(TokenType.Semicolon),
-				Syntax.open_parenthesis => new Token(TokenType.OpenParenthesis),
-				Syntax.close_parenthesis => new Token(TokenType.CloseParenthesis),
-				Syntax.open_brace => new Token(TokenType.OpenBrace),
-				Syntax.close_brace => new Token(TokenType.CloseBrace),
+				Syntax.semicolon => new Token(current_line, TokenType.Semicolon),
+				Syntax.open_parenthesis => new Token(current_line, TokenType.OpenParenthesis),
+				Syntax.close_parenthesis => new Token(current_line, TokenType.CloseParenthesis),
+				Syntax.open_brace => new Token(current_line, TokenType.OpenBrace),
+				Syntax.close_brace => new Token(current_line, TokenType.CloseBrace),
 
 				// Unary operators
-				Syntax.operator_not => new Token(TokenType.UnaryOperator, Syntax.UnaryOperator.Not),
-				Syntax.operator_bitwise_complement => new Token(TokenType.UnaryOperator, Syntax.UnaryOperator.BitwiseComplement),
+				Syntax.operator_not => new Token(current_line, TokenType.UnaryOperator, Syntax.UnaryOperator.Not),
+				Syntax.operator_bitwise_complement => new Token(current_line, TokenType.UnaryOperator, Syntax.UnaryOperator.BitwiseComplement),
 
 				// Binary operators
-				Syntax.operator_addition => new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Addition),
-				Syntax.operator_subtraction => new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Subtraction),
-				Syntax.operator_multiplication => new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Multiplication),
-				Syntax.operator_division => new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Division),
-				Syntax.operator_remainder => new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Remainder),
-				Syntax.operator_assignment => new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.Assignment),
+				Syntax.operator_addition => new Token(current_line, TokenType.BinaryOperator, Syntax.BinaryOperator.Addition),
+				Syntax.operator_subtraction => new Token(current_line, TokenType.BinaryOperator, Syntax.BinaryOperator.Subtraction),
+				Syntax.operator_multiplication => new Token(current_line, TokenType.BinaryOperator, Syntax.BinaryOperator.Multiplication),
+				Syntax.operator_division => new Token(current_line, TokenType.BinaryOperator, Syntax.BinaryOperator.Division),
+				Syntax.operator_remainder => new Token(current_line, TokenType.BinaryOperator, Syntax.BinaryOperator.Remainder),
+				Syntax.operator_assignment => new Token(current_line, TokenType.BinaryOperator, Syntax.BinaryOperator.Assignment),
 
 				// Ternary operators
-				Syntax.operator_ternary_true => new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.ConditionalTrue),
-				Syntax.operator_ternary_false => new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.ConditionalFalse),
+				Syntax.operator_ternary_true => new Token(current_line, TokenType.BinaryOperator, Syntax.BinaryOperator.ConditionalTrue),
+				Syntax.operator_ternary_false => new Token(current_line, TokenType.BinaryOperator, Syntax.BinaryOperator.ConditionalFalse),
 
-				_ => Token.Invalid,
+				_ => Token.Invalid(current_line),
 			};
 		}
 
@@ -100,19 +105,19 @@ namespace FTG.Studios.MCC {
 			// Check if keyword
 			for (int index = 0; index < Syntax.keywords.Length; index++)
 			{
-				if (lexeme == Syntax.keywords[index]) return new Token(TokenType.Keyword, (Syntax.Keyword)index);
+				if (lexeme == Syntax.keywords[index]) return new Token(current_line, TokenType.Keyword, (Syntax.Keyword)index);
 			}
 
 			// Check if identifier
 			if (Regex.IsMatch(lexeme, Syntax.identifier))
 			{
-				return new Token(TokenType.Identifier, lexeme);
+				return new Token(current_line, TokenType.Identifier, lexeme);
 			}
 
 			// Check if integer literal
 			if (Regex.IsMatch(lexeme, Syntax.integer_literal))
 			{
-				return new Token(TokenType.IntegerConstant, int.Parse(lexeme));
+				return new Token(current_line, TokenType.IntegerConstant, int.Parse(lexeme));
 			}
 
 			// At this point we know the lexeme is invalid since it wasn't a valid identifier or constant
@@ -122,19 +127,19 @@ namespace FTG.Studios.MCC {
 		static Token BuildOperatorToken(string lexeme)
 		{
 			// Unary operators
-			if (lexeme == Syntax.operator_decrement) return new Token(TokenType.UnaryOperator, Syntax.UnaryOperator.Decrement);
+			if (lexeme == Syntax.operator_decrement) return new Token(current_line, TokenType.UnaryOperator, Syntax.UnaryOperator.Decrement);
 
 			// Binary operators
-			if (lexeme == Syntax.operator_logical_and) return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalAnd);
-			if (lexeme == Syntax.operator_logical_or) return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalOr);
-			if (lexeme == Syntax.operator_logical_equal) return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalEqual);
-			if (lexeme == Syntax.operator_logical_not_equal) return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalNotEqual);
-			if (lexeme == Syntax.operator_logical_less) return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalLess);
-			if (lexeme == Syntax.operator_logical_greater) return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalGreater);
-			if (lexeme == Syntax.operator_logical_less_equal) return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalLessEqual);
-			if (lexeme == Syntax.operator_logical_greater_equal) return new Token(TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalGreaterEqual);
+			if (lexeme == Syntax.operator_logical_and) return new Token(current_line, TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalAnd);
+			if (lexeme == Syntax.operator_logical_or) return new Token(current_line, TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalOr);
+			if (lexeme == Syntax.operator_logical_equal) return new Token(current_line, TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalEqual);
+			if (lexeme == Syntax.operator_logical_not_equal) return new Token(current_line, TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalNotEqual);
+			if (lexeme == Syntax.operator_logical_less) return new Token(current_line, TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalLess);
+			if (lexeme == Syntax.operator_logical_greater) return new Token(current_line, TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalGreater);
+			if (lexeme == Syntax.operator_logical_less_equal) return new Token(current_line, TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalLessEqual);
+			if (lexeme == Syntax.operator_logical_greater_equal) return new Token(current_line, TokenType.BinaryOperator, Syntax.BinaryOperator.LogicalGreaterEqual);
 			
-			return Token.Invalid;
+			return Token.Invalid(current_line);
 		}
 	}
 }

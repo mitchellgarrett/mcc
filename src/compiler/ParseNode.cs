@@ -34,7 +34,7 @@ namespace FTG.Studios.MCC {
 		
 		public class BlockItem : Node { }
 		
-		public class Declaration : BlockItem {
+		public class Declaration : BlockItem, ForInitialization {
 			public readonly Identifier Identifier;
 			public readonly Expression Source;
 			
@@ -53,10 +53,10 @@ namespace FTG.Studios.MCC {
 		
 		public class Statement : BlockItem { }
 		
-		public class ReturnStatement : Statement {
+		public class Return : Statement {
 			public readonly Expression Expression;
 			
-			public ReturnStatement(Expression expression) {
+			public Return(Expression expression) {
 				Expression = expression;
 			}
 			
@@ -65,13 +65,14 @@ namespace FTG.Studios.MCC {
 			}
 		}
 
-		public class IfStatement : Statement
+		public class If : Statement
 		{
 			public readonly Expression Condition;
 			public readonly Statement Then;
 			public readonly Statement Else;
+			public string InternalLabel;
 
-			public IfStatement(Expression condition, Statement then, Statement @else)
+			public If(Expression condition, Statement then, Statement @else)
 			{
 				Condition = condition;
 				Then = then;
@@ -80,7 +81,87 @@ namespace FTG.Studios.MCC {
 
 			public override string ToString()
 			{
-				return $"If({Condition}, {Then}, {Else})".Replace("\n", "\n ");
+				return $"If(Label=\"{InternalLabel}\", {Condition}, {Then}, {Else})".Replace("\n", "\n ");
+			}
+		}
+
+		public class Break : Statement
+		{
+			public string InternalLabel;
+			
+			public override string ToString()
+			{
+				return $"Break(\"{InternalLabel}\")";
+			}
+		}
+		
+		public class Continue : Statement
+		{
+			public string InternalLabel;
+			
+			public override string ToString()
+			{
+				return $"Continue(\"{InternalLabel}\")";
+			}
+		}
+		
+		public class While : Statement
+		{
+			public readonly Expression Condition;
+			public readonly Statement Body;
+			public string InternalLabel;
+
+			public While(Expression condition, Statement body)
+			{
+				Condition = condition;
+				Body = body;
+			}
+			
+			public override string ToString()
+			{
+				return $"While(Label=\"{InternalLabel}\", {Condition}, {Body})".Replace("\n", " \n");
+			}
+		}
+		
+		public class DoWhile : Statement
+		{
+			public readonly Expression Condition;
+			public readonly Statement Body;
+			public string InternalLabel;
+
+			public DoWhile(Expression condition, Statement body)
+			{
+				Condition = condition;
+				Body = body;
+			}
+			
+			public override string ToString()
+			{
+				return $"DoWhile(Label=\"{InternalLabel}\", {Condition}, {Body})".Replace("\n", " \n");
+			}
+		}
+
+		public interface ForInitialization { }
+		
+		public class For : Statement
+		{
+			public readonly ForInitialization Initialization;
+			public readonly Expression Condition;
+			public readonly Expression Post;
+			public readonly Statement Body;
+			public string InternalLabel;
+
+			public For(ForInitialization initialization, Expression condition, Expression post, Statement body)
+			{
+				Initialization = initialization;
+				Condition = condition;
+				Post = post;
+				Body = body;
+			}
+
+			public override string ToString()
+			{
+				return $"For(Label=\"{InternalLabel}\", {Condition}, {Body})".Replace("\n", " \n");
 			}
 		}
 		
@@ -92,8 +173,9 @@ namespace FTG.Studios.MCC {
 			{
 				Items = items;
 			}
-			
-			public override string ToString() {
+
+			public override string ToString()
+			{
 				string body_text = " ";
 				foreach (BlockItem item in Items)
 					body_text += (item.ToString() + '\n').Replace("\n", "\n ");
@@ -101,7 +183,7 @@ namespace FTG.Studios.MCC {
 			}
 		}
 		
-		public class Expression : Statement { }
+		public class Expression : Statement, ForInitialization { }
 		
 		public class BinaryExpression : Expression {
 			public readonly Syntax.BinaryOperator Operator;
@@ -119,13 +201,13 @@ namespace FTG.Studios.MCC {
 			}
 		}
 
-		public class ConditionalExpression : Expression
+		public class Conditional : Expression
 		{
 			public readonly Expression Condition;
 			public readonly Expression Then;
 			public readonly Expression Else;
 			
-			public ConditionalExpression(Expression condition, Expression then, Expression @else)
+			public Conditional(Expression condition, Expression then, Expression @else)
 			{
 				Condition = condition;
 				Then = then;

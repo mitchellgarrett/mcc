@@ -66,6 +66,7 @@ class Application {
 		try
 		{
 			SemanticAnalzyer.ResolveVariables(parse_tree);
+			SemanticAnalzyer.LabelLoops(parse_tree);
 			Console.WriteLine(parse_tree);
 		}
 		catch (SemanticAnalzyerException e)

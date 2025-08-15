@@ -91,7 +91,12 @@ namespace FTG.Studios.MCC
 		/// Statement ::= "return" Expression ";" 
 		/// | Expression ";" 
 		/// | "if" "(" Expression ")" Statement [ "else" Statement ]
-		/// | "{" { BlockItem } "}"
+		/// | Block
+		/// | "break" ";"
+		/// | "continue" ";"
+		/// | "while" "(" Expression ")" Statement
+		/// | "do" Statement "while" "(" Expression ")" ";"
+		/// | "for" "(" [ ForInitialization ] ";" [ Expression ] ";" [ Expression ] ")" Statement
 		/// | ";"
 		/// </summary>
 		/// <param name="tokens"></param>
@@ -107,23 +112,38 @@ namespace FTG.Studios.MCC
 			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Return)) return ParseReturnStatement(tokens);
 			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.If)) return ParseIfStatement(tokens);
 			if (Match(tokens.Peek(), TokenType.OpenBrace)) return ParseBlock(tokens);
+			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Break))
+			{
+				tokens.Dequeue();
+				Expect(tokens.Dequeue(), TokenType.Semicolon);
+				return new ParseNode.Break();
+			}
+			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Continue))
+			{
+				tokens.Dequeue();
+				Expect(tokens.Dequeue(), TokenType.Semicolon);
+				return new ParseNode.Continue();
+			}
+			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.While)) return ParseWhileStatement(tokens);
+			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Do)) return ParseDoWhileStatement(tokens);
+			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.For)) return ParseForStatement(tokens);
 			
 			ParseNode.Expression expression = ParseExpression(tokens, 0);
 			Expect(tokens.Dequeue(), TokenType.Semicolon);
 			return expression;
 		}
 		
-		static ParseNode.ReturnStatement ParseReturnStatement(Queue<Token> tokens) {
+		static ParseNode.Return ParseReturnStatement(Queue<Token> tokens) {
 			Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.Return);
 			
 			ParseNode.Expression expression = ParseExpression(tokens, 0);
 			
 			Expect(tokens.Dequeue(), TokenType.Semicolon);
 			
-			return new ParseNode.ReturnStatement(expression);
+			return new ParseNode.Return(expression);
 		}
 		
-		static ParseNode.IfStatement ParseIfStatement(Queue<Token> tokens) {
+		static ParseNode.If ParseIfStatement(Queue<Token> tokens) {
 			Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.If);
 			Expect(tokens.Dequeue(), TokenType.OpenParenthesis);
 			
@@ -139,13 +159,78 @@ namespace FTG.Studios.MCC
 				@else = ParseStatement(tokens);
 			}
 
-			return new ParseNode.IfStatement(condition, then, @else);
+			return new ParseNode.If(condition, then, @else);
+		}
+
+		static ParseNode.While ParseWhileStatement(Queue<Token> tokens)
+		{
+			Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.While);
+			Expect(tokens.Dequeue(), TokenType.OpenParenthesis);
+
+			ParseNode.Expression condition = ParseExpression(tokens, 0);
+
+			Expect(tokens.Dequeue(), TokenType.CloseParenthesis);
+
+			ParseNode.Statement body = ParseStatement(tokens);
+
+			return new ParseNode.While(condition, body);
+		}
+		
+		static ParseNode.DoWhile ParseDoWhileStatement(Queue<Token> tokens)
+		{
+			Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.Do);
+			
+			ParseNode.Statement body = ParseStatement(tokens);
+			
+			Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.While);
+			Expect(tokens.Dequeue(), TokenType.OpenParenthesis);
+
+			ParseNode.Expression condition = ParseExpression(tokens, 0);
+
+			Expect(tokens.Dequeue(), TokenType.CloseParenthesis);
+			Expect(tokens.Dequeue(), TokenType.Semicolon);
+
+			return new ParseNode.DoWhile(condition, body);
+		}
+		
+		static ParseNode.For ParseForStatement(Queue<Token> tokens)
+		{
+			Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.For);
+			Expect(tokens.Dequeue(), TokenType.OpenParenthesis);
+
+			ParseNode.ForInitialization initialization = null;
+			if (!Match(tokens.Peek(), TokenType.Semicolon)) initialization = ParseForInitialization(tokens);
+			else Expect(tokens.Dequeue(), TokenType.Semicolon);
+			
+			ParseNode.Expression condition = null;
+			if (!Match(tokens.Peek(), TokenType.Semicolon)) condition = ParseExpression(tokens, 0);
+			
+			Expect(tokens.Dequeue(), TokenType.Semicolon);
+
+			ParseNode.Expression post = null;
+			if (!Match(tokens.Peek(), TokenType.CloseParenthesis)) post = ParseExpression(tokens, 0);
+			
+			Expect(tokens.Dequeue(), TokenType.CloseParenthesis);
+
+			ParseNode.Statement body = ParseStatement(tokens);
+
+			return new ParseNode.For(initialization, condition, post, body);
+		}
+
+		static ParseNode.ForInitialization ParseForInitialization(Queue<Token> tokens)
+		{
+			// If first token is 'int' then this is a variable declaration
+			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Integer)) return ParseDeclaration(tokens);
+			// Otherwise it is an expression
+			ParseNode.Expression expression = ParseExpression(tokens, 0);
+			Expect(tokens.Dequeue(), TokenType.Semicolon);
+			return expression;
 		}
 		
 		static ParseNode.Block ParseBlock(Queue<Token> tokens)
 		{
 			Expect(tokens.Dequeue(), TokenType.OpenBrace);
-			
+
 			List<ParseNode.BlockItem> items = new List<ParseNode.BlockItem>();
 			while (!Match(tokens.Peek(), TokenType.CloseBrace))
 			{
@@ -186,7 +271,7 @@ namespace FTG.Studios.MCC
 					Expect(tokens.Dequeue(), TokenType.BinaryOperator, Syntax.BinaryOperator.ConditionalFalse);
 
 					ParseNode.Expression else_expression = ParseExpression(tokens, current_precedence);
-					left_expression = new ParseNode.ConditionalExpression(left_expression, then_expression, else_expression);
+					left_expression = new ParseNode.Conditional(left_expression, then_expression, else_expression);
 				}
 				else
 				{
@@ -227,7 +312,7 @@ namespace FTG.Studios.MCC
 			
 			// Convert binary subtraction operator to negation
 			if (Match(@operator, TokenType.BinaryOperator, Syntax.BinaryOperator.Subtraction)) {
-				@operator = new Token(TokenType.UnaryOperator, Syntax.UnaryOperator.Negation);
+				@operator = new Token(@operator.Line, TokenType.UnaryOperator, Syntax.UnaryOperator.Negation);
 			}
 			Expect(@operator, TokenType.UnaryOperator);
 			

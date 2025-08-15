@@ -34,7 +34,7 @@ namespace FTG.Studios.MCC {
 			GenerateBlock(ref instructions, function.Body);
 
 			// Add Return(0) to the end of every function in case there is no explicit return given
-			GenerateReturnStatement(ref instructions, new ParseNode.ReturnStatement(new ParseNode.Constant(0)));
+			GenerateReturnStatement(ref instructions, new ParseNode.Return(new ParseNode.Constant(0)));
 			
 			return new IntermediateNode.Function(identifier, instructions.ToArray());
 		}
@@ -72,12 +72,12 @@ namespace FTG.Studios.MCC {
 		static void GenerateStatement(ref List<IntermediateNode.Instruction> instructions, ParseNode.Statement statement)
 		{
 			if (statement is null) return;
-			if (statement is ParseNode.ReturnStatement return_statement)
+			if (statement is ParseNode.Return return_statement)
 			{
 				GenerateReturnStatement(ref instructions, return_statement);
 				return;
 			}
-			if (statement is ParseNode.IfStatement if_statement)
+			if (statement is ParseNode.If if_statement)
 			{
 				GenerateIfStatement(ref instructions, if_statement);
 				return;
@@ -92,17 +92,42 @@ namespace FTG.Studios.MCC {
 				GenerateExpression(ref instructions, expression);
 				return;
 			}
+			if (statement is ParseNode.Break @break)
+			{
+				instructions.Add(new IntermediateNode.Jump(@break.InternalLabel));
+				return;
+			}
+			if (statement is ParseNode.Continue @continue)
+			{
+				instructions.Add(new IntermediateNode.Jump(@continue.InternalLabel));
+				return;
+			}
+			if (statement is ParseNode.While @while)
+			{
+				GenerateWhileLoop(ref instructions, @while);
+				return;
+			}
+			if (statement is ParseNode.DoWhile do_while)
+			{
+				GenerateDoWhileLoop(ref instructions, do_while);
+				return;
+			}
+			if (statement is ParseNode.For @for)
+			{
+				GenerateForLoop(ref instructions, @for);
+				return;
+			}
 			
-			throw new IntermediateGeneratorException("GenerateStatement", statement.GetType(), statement, typeof(Nullable), typeof(ParseNode.ReturnStatement), typeof(ParseNode.Expression));
+			throw new IntermediateGeneratorException("GenerateStatement", statement.GetType(), statement, typeof(Nullable), typeof(ParseNode.Return), typeof(ParseNode.Expression), typeof(ParseNode.Break), typeof(ParseNode.Continue), typeof(ParseNode.While), typeof(ParseNode.DoWhile), typeof(ParseNode.For));
 		}
 		
-		static void GenerateReturnStatement(ref List<IntermediateNode.Instruction> instructions, ParseNode.ReturnStatement statement) {
+		static void GenerateReturnStatement(ref List<IntermediateNode.Instruction> instructions, ParseNode.Return statement) {
 			IntermediateNode.Operand value = GenerateExpression(ref instructions, statement.Expression);
 			instructions.Add(new IntermediateNode.Comment($"return {value.ToCommentString()}"));
 			instructions.Add(new IntermediateNode.ReturnInstruction(value));
 		}
 
-		static void GenerateIfStatement(ref List<IntermediateNode.Instruction> instructions, ParseNode.IfStatement statement)
+		static void GenerateIfStatement(ref List<IntermediateNode.Instruction> instructions, ParseNode.If statement)
 		{
 			if (statement.Else == null)
 			{
@@ -116,7 +141,7 @@ namespace FTG.Studios.MCC {
 			
 		}
 
-		static void GenerateIfStatementWithoutElse(ref List<IntermediateNode.Instruction> instructions, ParseNode.IfStatement statement)
+		static void GenerateIfStatementWithoutElse(ref List<IntermediateNode.Instruction> instructions, ParseNode.If statement)
 		{
 			int comment_index = instructions.Count;
 			IntermediateNode.Operand condition = GenerateExpression(ref instructions, statement.Condition);
@@ -130,7 +155,7 @@ namespace FTG.Studios.MCC {
 			instructions.Add(end_label);
 		}
 
-		static void GenerateIfStatementWithElse(ref List<IntermediateNode.Instruction> instructions, ParseNode.IfStatement statement)
+		static void GenerateIfStatementWithElse(ref List<IntermediateNode.Instruction> instructions, ParseNode.If statement)
 		{
 			int comment_index = instructions.Count;
 			IntermediateNode.Operand condition = GenerateExpression(ref instructions, statement.Condition);
@@ -150,16 +175,61 @@ namespace FTG.Studios.MCC {
 			instructions.Add(end_label);
 
 		}
+
+		static void GenerateWhileLoop(ref List<IntermediateNode.Instruction> instructions, ParseNode.While statement)
+		{
+			instructions.Add(new IntermediateNode.Label($"Continue{statement.InternalLabel}"));
+			IntermediateNode.Operand value = GenerateExpression(ref instructions, statement.Condition);
+			instructions.Add(new IntermediateNode.JumpIfZero($"Break{statement.InternalLabel}", value));
+			GenerateStatement(ref instructions, statement.Body);
+			instructions.Add(new IntermediateNode.Jump($"Continue{statement.InternalLabel}"));
+			instructions.Add(new IntermediateNode.Label($"Break{statement.InternalLabel}"));
+		}
+		
+		static void GenerateDoWhileLoop(ref List<IntermediateNode.Instruction> instructions, ParseNode.DoWhile statement)
+		{
+			instructions.Add(new IntermediateNode.Label($"Start{statement.InternalLabel}"));
+			GenerateStatement(ref instructions, statement.Body);
+			instructions.Add(new IntermediateNode.Label($"Continue{statement.InternalLabel}"));
+			IntermediateNode.Operand value = GenerateExpression(ref instructions, statement.Condition);
+			instructions.Add(new IntermediateNode.JumpIfNotZero($"Start{statement.InternalLabel}", value));
+			instructions.Add(new IntermediateNode.Label($"Break{statement.InternalLabel}"));
+		}
+
+		static void GenerateForLoop(ref List<IntermediateNode.Instruction> instructions, ParseNode.For statement)
+		{
+			if (statement.Initialization is ParseNode.Declaration init_declaration) GenerateDeclaration(ref instructions, init_declaration);
+			else if (statement.Initialization is ParseNode.Expression init_expression) GenerateExpression(ref instructions, init_expression);
+			else if (statement.Initialization is null) { }
+			else throw new SemanticAnalzyerException("", "");
+
+			instructions.Add(new IntermediateNode.Label($"Start{statement.InternalLabel}"));
+
+
+			if (statement.Condition != null)
+			{
+				IntermediateNode.Operand value = GenerateExpression(ref instructions, statement.Condition);
+				instructions.Add(new IntermediateNode.JumpIfZero($"Break{statement.InternalLabel}", value));
+			}
+			
+			GenerateStatement(ref instructions, statement.Body);
+			instructions.Add(new IntermediateNode.Label($"Continue{statement.InternalLabel}"));
+			
+			if (statement.Post != null) GenerateExpression(ref instructions, statement.Post);
+			
+			instructions.Add(new IntermediateNode.Jump($"Start{statement.InternalLabel}"));
+			instructions.Add(new IntermediateNode.Label($"Break{statement.InternalLabel}"));
+		}
 		
 		static IntermediateNode.Operand GenerateExpression(ref List<IntermediateNode.Instruction> instructions, ParseNode.Expression expression)
-		{
-			if (expression is ParseNode.Factor factor) return GenerateFactor(ref instructions, factor);
-			if (expression is ParseNode.BinaryExpression binary) return GenerateBinaryExpression(ref instructions, binary);
-			if (expression is ParseNode.Assignment assignment) return GenerateAssignment(ref instructions, assignment);
-			if (expression is ParseNode.ConditionalExpression conditional) return GenerateConditional(ref instructions, conditional);
+			{
+				if (expression is ParseNode.Factor factor) return GenerateFactor(ref instructions, factor);
+				if (expression is ParseNode.BinaryExpression binary) return GenerateBinaryExpression(ref instructions, binary);
+				if (expression is ParseNode.Assignment assignment) return GenerateAssignment(ref instructions, assignment);
+				if (expression is ParseNode.Conditional conditional) return GenerateConditional(ref instructions, conditional);
 
-			throw new IntermediateGeneratorException("GenerateExpression", expression.GetType(), expression, typeof(ParseNode.Factor), typeof(ParseNode.BinaryExpression));
-		}
+				throw new IntermediateGeneratorException("GenerateExpression", expression.GetType(), expression, typeof(ParseNode.Factor), typeof(ParseNode.BinaryExpression));
+			}
 
 		static IntermediateNode.Operand GenerateFactor(ref List<IntermediateNode.Instruction> instructions, ParseNode.Factor factor)
 		{
@@ -202,7 +272,7 @@ namespace FTG.Studios.MCC {
 			return destination;
 		}
 
-		static IntermediateNode.Operand GenerateConditional(ref List<IntermediateNode.Instruction> instructions, ParseNode.ConditionalExpression conditional)
+		static IntermediateNode.Operand GenerateConditional(ref List<IntermediateNode.Instruction> instructions, ParseNode.Conditional conditional)
 		{
 			int comment_index = instructions.Count;
 			IntermediateNode.Operand condition = GenerateExpression(ref instructions, conditional.Condition);
