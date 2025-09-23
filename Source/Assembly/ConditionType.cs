@@ -1,5 +1,3 @@
-namespace FTG.Studios.MCC {
-	
-	public enum ConditionType { E, NE, G, GE, L, LE };
+namespace FTG.Studios.MCC.Assembly;
 
-}
+public enum ConditionType { E, NE, G, GE, L, LE };

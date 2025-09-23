@@ -2,6 +2,12 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using FTG.Studios.MCC;
+using FTG.Studios.MCC.Lexer;
+using FTG.Studios.MCC.Parser;
+using FTG.Studios.MCC.SemanticAnalysis;
+using FTG.Studios.MCC.Intermediate;
+using FTG.Studios.MCC.Assembly;
+using FTG.Studios.MCC.CodeGeneration;
 
 class Application
 {

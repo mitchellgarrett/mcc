@@ -2,10 +2,7 @@ rwildcard = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2
 
 SRC_DIR = Source
 SRC = $(call rwildcard,$(SRC_DIR),*.cs)
-BUILD_DIR = build
-TARGET = $(BUILD_DIR)/mcc.exe
-
-CSC_FLAGS = -errorendlocation
+TARGET = bin/Debug/net9.0/MCC
 
 FILE ?= Programs/return_2.c
 ASM_FILE = $(FILE:.c=.S)
@@ -16,8 +13,7 @@ EXE_FILE = $(basename $(FILE))
 all: $(TARGET)
 
 $(TARGET): $(SRC)
-	@mkdir -p $(BUILD_DIR)
-	@csc $(SRC) -out:$(TARGET) $(CSC_FLAGS)
+	@dotnet build --verbosity detailed	
 
 # Runs the compiler then runs the generate executable
 .PHONY: run
@@ -34,7 +30,7 @@ ref_asm:
 # Runs compiler to generate a .S file
 .PHONY: asm
 asm: $(TARGET)
-	@mono $(TARGET) $(FILE) $(ASM_FILE)
+	$(TARGET) $(FILE) $(ASM_FILE)
 
 .PHONY: exe
 exe:
@@ -51,7 +47,6 @@ lib:
 # Removes temporary directories
 .PHONY: clean
 clean:
-	@rm -rf $(BUILD_DIR)
 	@rm -rf bin obj
 
 # Runs test suite

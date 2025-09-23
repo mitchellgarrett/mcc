@@ -1,163 +1,164 @@
-namespace FTG.Studios.MCC {
+using FTG.Studios.MCC.Lexer;
 
-	public static partial class IntermediateNode
+namespace FTG.Studios.MCC.Intermediate;
+
+public static partial class IntermediateNode
+{
+
+	public abstract class Instruction : Node { }
+
+	public class ReturnInstruction : Instruction
 	{
+		public readonly Operand Value;
 
-		public abstract class Instruction : Node { }
-
-		public class ReturnInstruction : Instruction
+		public ReturnInstruction(Operand value)
 		{
-			public readonly Operand Value;
-
-			public ReturnInstruction(Operand value)
-			{
-				Value = value;
-			}
-
-			public override string ToString()
-			{
-				return $"Return({Value})";
-			}
+			Value = value;
 		}
 
-		public class Copy : Instruction
+		public override string ToString()
 		{
-			public readonly Operand Source;
-			public readonly Operand Destination;
+			return $"Return({Value})";
+		}
+	}
 
-			public Copy(Operand source, Operand destination)
-			{
-				Source = source;
-				Destination = destination;
-			}
+	public class Copy : Instruction
+	{
+		public readonly Operand Source;
+		public readonly Operand Destination;
 
-			public override string ToString()
-			{
-				return $"Copy({Source}, {Destination})";
-			}
+		public Copy(Operand source, Operand destination)
+		{
+			Source = source;
+			Destination = destination;
 		}
 
-		public class Jump : Instruction
+		public override string ToString()
 		{
-			public readonly string Target;
+			return $"Copy({Source}, {Destination})";
+		}
+	}
 
-			public Jump(string target)
-			{
-				Target = target;
-			}
+	public class Jump : Instruction
+	{
+		public readonly string Target;
 
-			public override string ToString()
-			{
-				return $"Jump({Target})";
-			}
+		public Jump(string target)
+		{
+			Target = target;
 		}
 
-		public class JumpIfZero : Instruction
+		public override string ToString()
 		{
-			public readonly string Target;
-			public readonly Operand Condition;
+			return $"Jump({Target})";
+		}
+	}
 
-			public JumpIfZero(string target, Operand condition)
-			{
-				Target = target;
-				Condition = condition;
-			}
+	public class JumpIfZero : Instruction
+	{
+		public readonly string Target;
+		public readonly Operand Condition;
 
-			public override string ToString()
-			{
-				return $"JumpIfZero({Target}, {Condition})";
-			}
+		public JumpIfZero(string target, Operand condition)
+		{
+			Target = target;
+			Condition = condition;
 		}
 
-		public class JumpIfNotZero : Instruction
+		public override string ToString()
 		{
-			public readonly string Target;
-			public readonly Operand Condition;
+			return $"JumpIfZero({Target}, {Condition})";
+		}
+	}
 
-			public JumpIfNotZero(string target, Operand condition)
-			{
-				Target = target;
-				Condition = condition;
-			}
+	public class JumpIfNotZero : Instruction
+	{
+		public readonly string Target;
+		public readonly Operand Condition;
 
-			public override string ToString()
-			{
-				return $"JumpIfNotZero({Target}, {Condition})";
-			}
+		public JumpIfNotZero(string target, Operand condition)
+		{
+			Target = target;
+			Condition = condition;
 		}
 
-		public class Label : Instruction
+		public override string ToString()
 		{
-			public readonly string Identifier;
+			return $"JumpIfNotZero({Target}, {Condition})";
+		}
+	}
 
-			public Label(string identifier)
-			{
-				Identifier = identifier;
-			}
+	public class Label : Instruction
+	{
+		public readonly string Identifier;
 
-			public override string ToString()
-			{
-				return $"Label({Identifier})";
-			}
+		public Label(string identifier)
+		{
+			Identifier = identifier;
 		}
 
-		public class UnaryInstruction : Instruction
+		public override string ToString()
 		{
-			public readonly Syntax.UnaryOperator Operator;
-			public readonly Operand Source;
-			public readonly Operand Destination;
+			return $"Label({Identifier})";
+		}
+	}
 
-			public UnaryInstruction(Syntax.UnaryOperator @operator, Operand source, Operand destination)
-			{
-				Operator = @operator;
-				Source = source;
-				Destination = destination;
-			}
+	public class UnaryInstruction : Instruction
+	{
+		public readonly Syntax.UnaryOperator Operator;
+		public readonly Operand Source;
+		public readonly Operand Destination;
 
-			public override string ToString()
-			{
-				return $"Unary({Operator}, {Source}, {Destination})";
-			}
+		public UnaryInstruction(Syntax.UnaryOperator @operator, Operand source, Operand destination)
+		{
+			Operator = @operator;
+			Source = source;
+			Destination = destination;
 		}
 
-		public class BinaryInstruction : Instruction
+		public override string ToString()
 		{
-			public readonly Syntax.BinaryOperator Operator;
-			public readonly Operand LeftOperand;
-			public readonly Operand RightOperand;
-			public readonly Operand Destination;
+			return $"Unary({Operator}, {Source}, {Destination})";
+		}
+	}
 
-			public BinaryInstruction(Syntax.BinaryOperator @operator, Operand left_operand, Operand right_operand, Operand destination)
-			{
-				Operator = @operator;
-				LeftOperand = left_operand;
-				RightOperand = right_operand;
-				Destination = destination;
-			}
+	public class BinaryInstruction : Instruction
+	{
+		public readonly Syntax.BinaryOperator Operator;
+		public readonly Operand LeftOperand;
+		public readonly Operand RightOperand;
+		public readonly Operand Destination;
 
-			public override string ToString()
-			{
-				return $"Binary({Operator}, {LeftOperand}, {RightOperand}, {Destination})";
-			}
+		public BinaryInstruction(Syntax.BinaryOperator @operator, Operand left_operand, Operand right_operand, Operand destination)
+		{
+			Operator = @operator;
+			LeftOperand = left_operand;
+			RightOperand = right_operand;
+			Destination = destination;
 		}
 
-		public class FunctionCall : Instruction
+		public override string ToString()
 		{
-			public readonly string Identifier;
-			public readonly Operand[] Arguments;
-			public readonly Operand Destination;
+			return $"Binary({Operator}, {LeftOperand}, {RightOperand}, {Destination})";
+		}
+	}
 
-			public FunctionCall(string identifier, Operand[] arguments, Operand destination)
-			{
-				Identifier = identifier;
-				Arguments = arguments;
-				Destination = destination;
-			}
-			
-			public override string ToString()
-			{
-				return $"FunctionCall(Identifier=\"{Identifier}\", Arguments({string.Join<Operand>(", ", Arguments)}), Destination({Destination}))";
-			}
+	public class FunctionCall : Instruction
+	{
+		public readonly string Identifier;
+		public readonly Operand[] Arguments;
+		public readonly Operand Destination;
+
+		public FunctionCall(string identifier, Operand[] arguments, Operand destination)
+		{
+			Identifier = identifier;
+			Arguments = arguments;
+			Destination = destination;
+		}
+		
+		public override string ToString()
+		{
+			return $"FunctionCall(Identifier=\"{Identifier}\", Arguments({string.Join<Operand>(", ", Arguments)}), Destination({Destination}))";
 		}
 	}
 }
