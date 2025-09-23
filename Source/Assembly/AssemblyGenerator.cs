@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace FTG.Studios.MCC {
 	
-	public static class CodeGenerator {
+	public static class AssemblyGenerator {
 		
 		public static AssemblyTree Generate(IntermediateTree tree) {
 			AssemblyNode.Program program = GenerateProgram(tree.Program);

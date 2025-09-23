@@ -3,8 +3,14 @@ using System.Collections.Generic;
 namespace FTG.Studios.MCC
 {
 
-	public static partial class SemanticAnalzyer
+	public static class IdentifierResolver
 	{
+		public static void ResolveIdentifiers(ParseTree tree)
+		{
+			IdentifierMap.Reset();
+			IdentifierMap identifier_map = new IdentifierMap();
+			ResolveIdentifiersInProgram(identifier_map, tree.Program);
+		}
 
 		static void ResolveIdentifiersInProgram(IdentifierMap identifier_map, ParseNode.Program program)
 		{

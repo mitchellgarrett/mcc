@@ -3,8 +3,15 @@ using System;
 namespace FTG.Studios.MCC
 {
 
-	public static partial class SemanticAnalzyer
+	public static class TypeChecker
 	{
+		public static SymbolTable CheckTypes(ParseTree tree)
+		{
+			SymbolTable symbol_table = new SymbolTable();
+			CheckTypesInProgram(symbol_table, tree.Program);
+			return symbol_table;
+		}
+		
 		static void CheckTypesInProgram(SymbolTable symbol_table, ParseNode.Program program)
 		{
 			foreach (var function in program.FunctionDeclarations)

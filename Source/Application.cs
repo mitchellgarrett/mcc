@@ -162,7 +162,7 @@ class Application
 		Console.WriteLine("Assembly Tree");
 		Console.WriteLine("-------------");
 
-		AssemblyTree assembly_tree = CodeGenerator.Generate(intermediate_tree);
+		AssemblyTree assembly_tree = AssemblyGenerator.Generate(intermediate_tree);
 		Console.WriteLine(assembly_tree);
 
 		Console.WriteLine("-------------");

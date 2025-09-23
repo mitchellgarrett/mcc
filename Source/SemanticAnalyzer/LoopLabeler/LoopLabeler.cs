@@ -1,13 +1,19 @@
 namespace FTG.Studios.MCC
 {
 
-	public static partial class SemanticAnalzyer
+	public static class LoopLabeler
 	{
 		static int next_loop_label_index;
 
 		static string GetNextLoopLabel(ParseNode.Statement loop)
 		{
 			return $"{loop.GetType().Name}{next_loop_label_index++}";
+		}
+		
+		public static void LabelLoops(ParseTree tree)
+		{
+			next_loop_label_index = 0;
+			LabelLoopsInProgram(tree.Program);
 		}
 
 		static void LabelLoopsInProgram(ParseNode.Program program)

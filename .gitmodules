@@ -1,4 +1,4 @@
-[submodule "deps/writing-a-c-compiler-tests"]
-	path = deps/writing-a-c-compiler-tests
+[submodule "Modules/writing-a-c-compiler-tests"]
+	path = Modules/writing-a-c-compiler-tests
 	url = https://github.com/nlsandler/writing-a-c-compiler-tests.git
 	branch = complete-test-suite
