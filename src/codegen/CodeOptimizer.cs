@@ -15,8 +15,7 @@ namespace FTG.Studios.MCC {
 		}
 		
 		public static void AssignVariables(AssemblyTree tree) {
-			AssemblyNode.Function function = tree.Program.Function;
-			AssignVariablesFunction(function);
+			foreach (var function in tree.Program.Functions) AssignVariablesFunction(function);
 		}
 		
 		public static void AssignVariablesFunction(AssemblyNode.Function function) {
@@ -29,13 +28,16 @@ namespace FTG.Studios.MCC {
 				if (instruction is AssemblyNode.CMP instruction_cmp) AssignVariablesCMP(instruction_cmp);
 				if (instruction is AssemblyNode.SETCC instruction_set) AssignVariablesSET(instruction_set);
 				if (instruction is AssemblyNode.IDIV instruction_idiv) AssignVariablesIDIV(instruction_idiv);
-				if (instruction is AssemblyNode.UnaryInstruction instruction_unary) AssignVariablesUnaryInstruction(instruction_unary);
-				if (instruction is AssemblyNode.BinaryInstruction instruction_binary) AssignVariablesBinaryInstruction(instruction_binary);
+				if (instruction is AssemblyNode.Unary instruction_unary) AssignVariablesUnaryInstruction(instruction_unary);
+				if (instruction is AssemblyNode.Binary instruction_binary) AssignVariablesBinaryInstruction(instruction_binary);
+				if (instruction is AssemblyNode.Push instruction_push) AssignVariablesPushInstruction(instruction_push);
 			}
 			
 			int space_to_allocate = System.Math.Abs(stack_offset);
 			if (space_to_allocate > 0) {
-				function.Body.Insert(0, new AssemblyNode.AllocateStackInstruction(space_to_allocate));
+				// Ensure the stack is 16-byte aligned
+				if (space_to_allocate % 16 != 0) space_to_allocate += space_to_allocate % 16;
+				function.Body.Insert(0, new AssemblyNode.AllocateStack(space_to_allocate));
 				function.Body.Insert(0, new AssemblyNode.Comment($"allocate {space_to_allocate} bytes"));
 			}
 		}
@@ -78,7 +80,7 @@ namespace FTG.Studios.MCC {
 			}
 		}
 		
-		static void AssignVariablesUnaryInstruction(AssemblyNode.UnaryInstruction instruction)
+		static void AssignVariablesUnaryInstruction(AssemblyNode.Unary instruction)
 		{
 			if (instruction.Operand is AssemblyNode.Variable)
 			{
@@ -87,7 +89,7 @@ namespace FTG.Studios.MCC {
 			}
 		}
 		
-		static void AssignVariablesBinaryInstruction(AssemblyNode.BinaryInstruction instruction) {
+		static void AssignVariablesBinaryInstruction(AssemblyNode.Binary instruction) {
 			if (instruction.Source is AssemblyNode.Variable) {
 				AssemblyNode.Variable variable = instruction.Source as AssemblyNode.Variable;
 				instruction.Source = GetStackOffset(variable.Identifier);
@@ -99,9 +101,15 @@ namespace FTG.Studios.MCC {
 			}
 		}
 		
-		public static void FixVariableAccesses(AssemblyTree tree) {
-			AssemblyNode.Function function = tree.Program.Function;
-			FixVariableAccessesFunction(function);
+		static void AssignVariablesPushInstruction(AssemblyNode.Push instruction)
+		{
+			if (instruction.Operand is AssemblyNode.Variable variable)
+				instruction.Operand = GetStackOffset(variable.Identifier);
+		}
+		
+		public static void FixVariableAccesses(AssemblyTree tree)
+		{
+			foreach (var function in tree.Program.Functions) FixVariableAccessesFunction(function);
 		}
 		
 		public static void FixVariableAccessesFunction(AssemblyNode.Function function) {
@@ -110,7 +118,7 @@ namespace FTG.Studios.MCC {
 				if (function.Body[index] is AssemblyNode.MOV) FixVariableAccessesMOV(ref function.Body, index);
 				if (function.Body[index] is AssemblyNode.CMP) FixVariableAccessesCMP(ref function.Body, index);
 				if (function.Body[index] is AssemblyNode.IDIV) FixVariableAccessesIDIV(ref function.Body, index);
-				if (function.Body[index] is AssemblyNode.BinaryInstruction) FixVariableAccessesBinaryInstruction(ref function.Body, index);
+				if (function.Body[index] is AssemblyNode.Binary) FixVariableAccessesBinaryInstruction(ref function.Body, index);
 			}
 		}
 		
@@ -153,7 +161,7 @@ namespace FTG.Studios.MCC {
 		}
 		
 		static void FixVariableAccessesBinaryInstruction(ref List<AssemblyNode.Instruction> instructions, int index) {
-			AssemblyNode.BinaryInstruction instruction = instructions[index] as AssemblyNode.BinaryInstruction;
+			AssemblyNode.Binary instruction = instructions[index] as AssemblyNode.Binary;
 			
 			// imul can't have destination as a memory location
 			if (instruction.Operator == Syntax.BinaryOperator.Multiplication && instruction.Destination is AssemblyNode.StackAccess) {

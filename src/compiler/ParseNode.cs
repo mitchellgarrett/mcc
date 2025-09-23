@@ -7,38 +7,26 @@ namespace FTG.Studios.MCC {
 		public abstract class Node { }
 		
 		public class Program : Node {
-			public readonly Function Function;
+			public readonly List<FunctionDeclaration> FunctionDeclarations;
 			
-			public Program(Function function) {
-				Function = function;
+			public Program(List<FunctionDeclaration> functionDeclarations) {
+				FunctionDeclarations = functionDeclarations;
 			}
 			
 			public override string ToString() {
-				return $"Program(\n{Function}".Replace("\n", "\n ") + "\n)";
+				return $"Program(\n{string.Join(", ", FunctionDeclarations)}".Replace("\n", "\n ") + "\n)";
 			}
 		}
 		
-		public class Function : Node {
-			public readonly Identifier Identifier;
-			public readonly Block Body;
-			
-			public Function(Identifier identifier, Block body) {
-				Identifier = identifier;
-				Body = body;
-			}
-			
-			public override string ToString() {
-				return $"Function(\nIdentifier=\"{Identifier}\"\nBody(\n{Body}\n)".Replace("\n", "\n ") + "\n)";
-			}
-		}
+		public abstract class BlockItem : Node { }
 		
-		public class BlockItem : Node { }
+		public abstract class Declaration : BlockItem { }
 		
-		public class Declaration : BlockItem, ForInitialization {
+		public class VariableDeclaration : Declaration, ForInitialization {
 			public readonly Identifier Identifier;
 			public readonly Expression Source;
 			
-			public Declaration(Identifier identifier, Expression source) {
+			public VariableDeclaration(Identifier identifier, Expression source) {
 				Identifier = identifier;
 				Source = source;
 			}
@@ -46,8 +34,24 @@ namespace FTG.Studios.MCC {
 			public override string ToString()
 			{
 				if (Source != null)
-					return $"Declaration({Identifier}, {Source})";
-				return $"Declaration({Identifier})";
+					return $"VariableDeclaration({Identifier}, {Source})";
+				return $"VariableDeclaration({Identifier})";
+			}
+		}
+		
+		public class FunctionDeclaration : Declaration {
+			public readonly Identifier Identifier;
+			public readonly List<Identifier> Parameters;
+			public readonly Block Body;
+			
+			public FunctionDeclaration(Identifier identifier, List<Identifier> parameters, Block body) {
+				Identifier = identifier;
+				Parameters = parameters;
+				Body = body;
+			}
+			
+			public override string ToString() {
+				return $"FunctionDeclaration(\nIdentifier=\"{Identifier}\", {string.Join(", ", Parameters)}\nBody(\n{Body}\n)".Replace("\n", "\n ") + "\n)";
 			}
 		}
 		
@@ -161,7 +165,7 @@ namespace FTG.Studios.MCC {
 
 			public override string ToString()
 			{
-				return $"For(Label=\"{InternalLabel}\", {Condition}, {Body})".Replace("\n", " \n");
+				return $"For(Label=\"{InternalLabel}\", {Initialization}, {Condition}, {Body})".Replace("\n", " \n");
 			}
 		}
 		
@@ -217,6 +221,26 @@ namespace FTG.Studios.MCC {
 			public override string ToString()
 			{
 				return $"Conditional({Condition}, {Then}, {Else})".Replace("\n", "\n ");
+			}
+		}
+
+		public class FunctionCall : Expression
+		{
+			public readonly Identifier Identifier;
+			public readonly List<Expression> Arguments;
+
+			public FunctionCall(Identifier identifier, List<Expression> arguments)
+			{
+				Identifier = identifier;
+				Arguments = arguments;
+			}
+			
+			public override string ToString()
+			{
+				string output = $"FunctionCall(Identifier=\"{Identifier}\"";
+				foreach (var a in Arguments) output += $", {a}";
+				output += ")";
+				return output;
 			}
 		}
 		

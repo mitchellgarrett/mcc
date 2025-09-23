@@ -5,10 +5,10 @@ using System.Linq;
 namespace FTG.Studios.MCC
 {
 	
-	public static class Parser {
+	public static partial class Parser {
 		
 		public static ParseTree Parse(List<Token> tokens) {
-			Queue<Token> stream = new Queue<Token>(tokens);
+			LinkedList<Token> stream = new LinkedList<Token>(tokens);
 			ParseNode.Program program = ParseProgram(stream);
 
 			if (stream.Count > 0) throw new ParserException($"Unexpected token at end of file: {stream.First()}", stream.First());
@@ -17,55 +17,70 @@ namespace FTG.Studios.MCC
 		}
 		
 		/// <summary>
-		/// Program ::= Function
+		/// Program ::= { FunctionDeclaration }
 		/// </summary>
 		/// <param name="tokens"></param>
 		/// <returns></returns>
-		static ParseNode.Program ParseProgram(Queue<Token> tokens)
+		static ParseNode.Program ParseProgram(LinkedList<Token> tokens)
 		{
-			ParseNode.Function function = ParseFunction(tokens);
-			return new ParseNode.Program(function);
+			List<ParseNode.FunctionDeclaration> functions = new List<ParseNode.FunctionDeclaration>();
+			while (tokens.Count > 0) functions.Add(ParseFunctionDeclaration(tokens));
+			return new ParseNode.Program(functions);
+		}
+
+		/// <summary>
+		/// Declaration ::= FunctionDeclaration | VariableDeclaration
+		/// </summary>
+		/// <param name="tokens"></param>
+		/// <returns></returns>
+		static ParseNode.Declaration ParseDeclaration(LinkedList<Token> tokens)
+		{
+			Token type = tokens.Dequeue();
+			Expect(type, TokenType.Keyword, Syntax.Keyword.Integer);
+
+			Token identifier = tokens.Dequeue();
+			Expect(identifier, TokenType.Identifier);
+
+			Token next_token = tokens.Peek();
+
+			tokens.AddFirst(identifier);
+			tokens.AddFirst(type);
+
+			if (Match(next_token, TokenType.OpenParenthesis)) return ParseFunctionDeclaration(tokens);
+			return ParseVariableDeclaration(tokens);
 		}
 		
 		/// <summary>
-		/// Function ::= "int" Identifier "(" "void" ")" Block
+		/// Function ::= "int" Identifier "(" ParameterList ")" ( Block | ";" )
 		/// </summary>
 		/// <param name="tokens"></param>
 		/// <returns></returns>
-		static ParseNode.Function ParseFunction(Queue<Token> tokens)
+		static ParseNode.FunctionDeclaration ParseFunctionDeclaration(LinkedList<Token> tokens)
 		{
 			Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.Integer);
 
 			ParseNode.Identifier identifier = ParseIdentifier(tokens);
 
 			Expect(tokens.Dequeue(), TokenType.OpenParenthesis);
-
-			Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.Void);
+			
+			// TODO: Include parameter types
+			List<ParseNode.Identifier> parameters = ParseParameterList(tokens);
 
 			Expect(tokens.Dequeue(), TokenType.CloseParenthesis);
 
-			ParseNode.Block body = ParseBlock(tokens);
+			ParseNode.Block body = null;
+			if (Match(tokens.Peek(), TokenType.Semicolon)) tokens.Dequeue();
+			else body = ParseBlock(tokens);
 
-			return new ParseNode.Function(identifier, body);
+			return new ParseNode.FunctionDeclaration(identifier, parameters, body);
 		}
-		
+
 		/// <summary>
-		/// BlockItem ::= Statement | Declaration
+		/// VariableDeclaration ::= "int" Identifier [ "=" Expression ] ";"
 		/// </summary>
 		/// <param name="tokens"></param>
 		/// <returns></returns>
-		static ParseNode.BlockItem ParseBlockItem(Queue<Token> tokens)
-		{
-			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Integer)) return ParseDeclaration(tokens);
-			return ParseStatement(tokens);
-		}
-		
-		/// <summary>
-		/// Declaration ::= "int" Identifier [ "=" Expression ] ";"
-		/// </summary>
-		/// <param name="tokens"></param>
-		/// <returns></returns>
-		static ParseNode.Declaration ParseDeclaration(Queue<Token> tokens)
+		static ParseNode.VariableDeclaration ParseVariableDeclaration(LinkedList<Token> tokens)
 		{
 			Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.Integer);
 
@@ -75,16 +90,56 @@ namespace FTG.Studios.MCC
 			ParseNode.Expression expression = null;
 			if (Match(tokens.Peek(), TokenType.BinaryOperator, Syntax.BinaryOperator.Assignment))
 			{
-				// Remove '=" from queue
+				// Remove '=" from LinkedList
 				tokens.Dequeue();
-				
+
 				// Parse initialization expression
 				expression = ParseExpression(tokens, 0);
 			}
 
 			Expect(tokens.Dequeue(), TokenType.Semicolon);
 
-			return new ParseNode.Declaration(identifier, expression);
+			return new ParseNode.VariableDeclaration(identifier, expression);
+		}
+
+		/// <summary>
+		/// ParameterList ::= "void" | "int" Identifier { "," "int" Identifier }
+		/// </summary>
+		/// <param name="tokens"></param>
+		/// <returns></returns>
+		static List<ParseNode.Identifier> ParseParameterList(LinkedList<Token> tokens)
+		{
+			// TODO: Make this return types too
+			List<ParseNode.Identifier> parameters = new List<ParseNode.Identifier>();
+
+			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Void))
+			{
+				tokens.Dequeue();
+				return parameters;
+			}
+
+			Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.Integer);
+			parameters.Add(ParseIdentifier(tokens));
+
+			while (Match(tokens.Peek(), TokenType.Comma))
+			{
+				tokens.Dequeue();
+				Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.Integer);
+				parameters.Add(ParseIdentifier(tokens));
+			}
+
+			return parameters;
+		}
+		
+		/// <summary>
+		/// BlockItem ::= Statement | Declaration
+		/// </summary>
+		/// <param name="tokens"></param>
+		/// <returns></returns>
+		static ParseNode.BlockItem ParseBlockItem(LinkedList<Token> tokens)
+		{
+			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Integer)) return ParseDeclaration(tokens);
+			return ParseStatement(tokens);
 		}
 		
 		/// <summary>
@@ -101,7 +156,7 @@ namespace FTG.Studios.MCC
 		/// </summary>
 		/// <param name="tokens"></param>
 		/// <returns></returns>
-		static ParseNode.Statement ParseStatement(Queue<Token> tokens)
+		static ParseNode.Statement ParseStatement(LinkedList<Token> tokens)
 		{
 			if (Match(tokens.Peek(), TokenType.Semicolon))
 			{
@@ -133,7 +188,7 @@ namespace FTG.Studios.MCC
 			return expression;
 		}
 		
-		static ParseNode.Return ParseReturnStatement(Queue<Token> tokens) {
+		static ParseNode.Return ParseReturnStatement(LinkedList<Token> tokens) {
 			Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.Return);
 			
 			ParseNode.Expression expression = ParseExpression(tokens, 0);
@@ -143,7 +198,7 @@ namespace FTG.Studios.MCC
 			return new ParseNode.Return(expression);
 		}
 		
-		static ParseNode.If ParseIfStatement(Queue<Token> tokens) {
+		static ParseNode.If ParseIfStatement(LinkedList<Token> tokens) {
 			Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.If);
 			Expect(tokens.Dequeue(), TokenType.OpenParenthesis);
 			
@@ -162,7 +217,7 @@ namespace FTG.Studios.MCC
 			return new ParseNode.If(condition, then, @else);
 		}
 
-		static ParseNode.While ParseWhileStatement(Queue<Token> tokens)
+		static ParseNode.While ParseWhileStatement(LinkedList<Token> tokens)
 		{
 			Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.While);
 			Expect(tokens.Dequeue(), TokenType.OpenParenthesis);
@@ -176,7 +231,7 @@ namespace FTG.Studios.MCC
 			return new ParseNode.While(condition, body);
 		}
 		
-		static ParseNode.DoWhile ParseDoWhileStatement(Queue<Token> tokens)
+		static ParseNode.DoWhile ParseDoWhileStatement(LinkedList<Token> tokens)
 		{
 			Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.Do);
 			
@@ -193,7 +248,7 @@ namespace FTG.Studios.MCC
 			return new ParseNode.DoWhile(condition, body);
 		}
 		
-		static ParseNode.For ParseForStatement(Queue<Token> tokens)
+		static ParseNode.For ParseForStatement(LinkedList<Token> tokens)
 		{
 			Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.For);
 			Expect(tokens.Dequeue(), TokenType.OpenParenthesis);
@@ -217,17 +272,27 @@ namespace FTG.Studios.MCC
 			return new ParseNode.For(initialization, condition, post, body);
 		}
 
-		static ParseNode.ForInitialization ParseForInitialization(Queue<Token> tokens)
+		/// <summary>
+		/// ForInitialization ::= VariableDeclaratiion | [ Expression ] ";"
+		/// </summary>
+		/// <param name="tokens"></param>
+		/// <returns></returns>
+		static ParseNode.ForInitialization ParseForInitialization(LinkedList<Token> tokens)
 		{
 			// If first token is 'int' then this is a variable declaration
-			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Integer)) return ParseDeclaration(tokens);
+			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Integer)) return ParseVariableDeclaration(tokens);
 			// Otherwise it is an expression
 			ParseNode.Expression expression = ParseExpression(tokens, 0);
 			Expect(tokens.Dequeue(), TokenType.Semicolon);
 			return expression;
 		}
 		
-		static ParseNode.Block ParseBlock(Queue<Token> tokens)
+		/// <summary>
+		/// Block ::= "{" { BlockItem } "}"
+		/// </summary>
+		/// <param name="tokens"></param>
+		/// <returns></returns>
+		static ParseNode.Block ParseBlock(LinkedList<Token> tokens)
 		{
 			Expect(tokens.Dequeue(), TokenType.OpenBrace);
 
@@ -249,8 +314,8 @@ namespace FTG.Studios.MCC
 		/// <param name="tokens"></param>
 		/// <param name="min_precedence"></param>
 		/// <returns></returns>
-		static ParseNode.Expression ParseExpression(Queue<Token> tokens, int min_precedence)
-		{
+		static ParseNode.Expression ParseExpression(LinkedList<Token> tokens, int min_precedence)
+		{	
 			ParseNode.Expression left_expression = ParseFactor(tokens);
 
 			int current_precedence;
@@ -266,7 +331,6 @@ namespace FTG.Studios.MCC
 				else if (Match(@operator, TokenType.BinaryOperator, Syntax.BinaryOperator.ConditionalTrue))
 				{
 					ParseNode.Expression then_expression = ParseExpression(tokens, 0);
-					Console.WriteLine(then_expression);
 
 					Expect(tokens.Dequeue(), TokenType.BinaryOperator, Syntax.BinaryOperator.ConditionalFalse);
 
@@ -284,15 +348,24 @@ namespace FTG.Studios.MCC
 		}
 		
 		/// <summary>
-		/// Factor ::= Integer | Identifier | UnaryOperator Factor | "(" Expression ")"
+		/// Factor ::= Integer | Identifier | UnaryOperator Factor | "(" Expression ")" | FunctionCall
 		/// </summary>
 		/// <param name="tokens"></param>
 		/// <returns></returns>
-		static ParseNode.Expression ParseFactor(Queue<Token> tokens)
+		static ParseNode.Expression ParseFactor(LinkedList<Token> tokens)
 		{
 			if (Match(tokens.Peek(), TokenType.IntegerConstant)) return ParseConstantExpression(tokens);
 
-			if (Match(tokens.Peek(), TokenType.Identifier)) return ParseVariable(tokens);
+			if (Match(tokens.Peek(), TokenType.Identifier)) {
+				Token identifier = tokens.Dequeue();
+				Token next_token = tokens.Peek();
+				tokens.AddFirst(identifier);
+				
+				if (Match(next_token, TokenType.OpenParenthesis))
+					return ParseFunctionCall(tokens);
+				else
+					return ParseVariable(tokens);
+			}
 			
 			if (Match(tokens.Peek(), TokenType.UnaryOperator) || Match(tokens.Peek(), TokenType.BinaryOperator, Syntax.BinaryOperator.Subtraction)) return ParseUnaryExpression(tokens);
 
@@ -306,34 +379,71 @@ namespace FTG.Studios.MCC
 
 			throw new ParserException($"Expected: constant or variable, got: {tokens.Peek()}", tokens.Peek());
 		}
+
+		/// <summary>
+		/// FunctionCall ::= Identifier "(" [ ArgumentList ] ")"
+		/// </summary>
+		/// <param name="tokens"></param>
+		/// <returns></returns>
+		static ParseNode.FunctionCall ParseFunctionCall(LinkedList<Token> tokens)
+		{
+			ParseNode.Identifier identifier = ParseIdentifier(tokens);
+			Expect(tokens.Dequeue(), TokenType.OpenParenthesis);
+			List<ParseNode.Expression> arguments = ParseArgumentList(tokens);
+			Expect(tokens.Dequeue(), TokenType.CloseParenthesis);
+
+			return new ParseNode.FunctionCall(identifier, arguments);
+		}
+
+		/// <summary>
+		/// ArgumentList ::= Expression { "," Expression }
+		/// </summary>
+		/// <param name="tokens"></param>
+		/// <returns></returns>
+		static List<ParseNode.Expression> ParseArgumentList(LinkedList<Token> tokens)
+		{
+			List<ParseNode.Expression> arguments = new List<ParseNode.Expression>();
+
+			if (!Match(tokens.Peek(), TokenType.CloseParenthesis)) arguments.Add(ParseExpression(tokens, 0));
+
+			while (Match(tokens.Peek(), TokenType.Comma))
+			{
+				tokens.Dequeue();
+				arguments.Add(ParseExpression(tokens, 0));
+			}
+
+			return arguments;
+		}
 		
-		static ParseNode.UnaryExpression ParseUnaryExpression(Queue<Token> tokens) {
+		static ParseNode.UnaryExpression ParseUnaryExpression(LinkedList<Token> tokens)
+		{
 			Token @operator = tokens.Dequeue();
-			
+
 			// Convert binary subtraction operator to negation
-			if (Match(@operator, TokenType.BinaryOperator, Syntax.BinaryOperator.Subtraction)) {
+			if (Match(@operator, TokenType.BinaryOperator, Syntax.BinaryOperator.Subtraction))
+			{
 				@operator = new Token(@operator.Line, TokenType.UnaryOperator, Syntax.UnaryOperator.Negation);
 			}
 			Expect(@operator, TokenType.UnaryOperator);
-			
+
 			ParseNode.Expression expression = ParseFactor(tokens);
-			
+
 			return new ParseNode.UnaryExpression((Syntax.UnaryOperator)@operator.Value, expression);
 		}
 		
-		static ParseNode.Constant ParseConstantExpression(Queue<Token> tokens) {
+		static ParseNode.Constant ParseConstantExpression(LinkedList<Token> tokens) {
 			Token token = tokens.Dequeue();
 			Expect(token, TokenType.IntegerConstant);
 			return new ParseNode.Constant((int)token.Value);
 		}
 
-		static ParseNode.Variable ParseVariable(Queue<Token> tokens)
+		static ParseNode.Variable ParseVariable(LinkedList<Token> tokens)
 		{
 			ParseNode.Identifier identifier = ParseIdentifier(tokens);
 			return new ParseNode.Variable(identifier);
 		}
 		
-		static ParseNode.Identifier ParseIdentifier(Queue<Token> tokens)
+		static ParseNode.Identifier ParseIdentifier(LinkedList<Token> tokens)
 		{
 			Token token = tokens.Dequeue();
 			Expect(token, TokenType.Identifier);

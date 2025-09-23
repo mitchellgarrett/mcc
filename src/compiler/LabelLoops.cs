@@ -1,5 +1,3 @@
-using System;
-
 namespace FTG.Studios.MCC
 {
 
@@ -11,10 +9,15 @@ namespace FTG.Studios.MCC
 		{
 			return $"{loop.GetType().Name}{next_loop_label_index++}";
 		}
-		
-		static void LabelLoopsInFunction(ParseNode.Function function)
+
+		static void LabelLoopsInProgram(ParseNode.Program program)
 		{
-			LabelLoopsInBlock(string.Empty, function.Body);
+			foreach (var function in program.FunctionDeclarations) LabelLoopsInFunctionDeclaration(function);
+		}
+		
+		static void LabelLoopsInFunctionDeclaration(ParseNode.FunctionDeclaration function)
+		{
+			if (function.Body != null) LabelLoopsInBlock(string.Empty, function.Body);
 		}
 
 		static void LabelLoopsInBlock(string label, ParseNode.Block block)

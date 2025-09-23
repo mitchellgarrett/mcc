@@ -72,6 +72,7 @@ namespace FTG.Studios.MCC {
 			{
 				// Puncuation
 				Syntax.semicolon => new Token(current_line, TokenType.Semicolon),
+				Syntax.comma => new Token(current_line, TokenType.Comma),
 				Syntax.open_parenthesis => new Token(current_line, TokenType.OpenParenthesis),
 				Syntax.close_parenthesis => new Token(current_line, TokenType.CloseParenthesis),
 				Syntax.open_brace => new Token(current_line, TokenType.OpenBrace),

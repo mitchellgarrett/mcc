@@ -3,26 +3,88 @@ using System.IO;
 using System.Collections.Generic;
 using FTG.Studios.MCC;
 
-class Application {
-	
+class Application
+{
+
+	struct CommandLineArguments
+	{
+		public bool DoLex, DoParse, DoValidate, DoTacky, DoCodegen;
+	}
+
 	/// Command Line Arguments
 	/// --lex - stop before parsing
-	/// --parse - stop before code generation
-	/// --codegen - stop before code emission
-	/// -S - generate assembly but not executeable
-	
-	public static void Main(string[] args) {
-		string input_path = args[0];
-		string output_path = args[1];
-		
+	/// --parse - stop before semantic analysis
+	/// --validate - stop before intermediate code generation
+	/// --tacky - stop before code emission
+	/// --codegen - stop before execution
+	public static void Main(string[] args)
+	{
+		CommandLineArguments command_line_arguments = new CommandLineArguments()
+		{
+			DoLex = true,
+			DoParse = true,
+			DoValidate = true,
+			DoTacky = true,
+			DoCodegen = true
+		};
+
+		string input_path = null;
+		string output_path = null;
+
+		// TODO: Make this cleaner
+		foreach (string argument in args)
+		{
+			if (argument.ToLower() == "--lex")
+			{
+				command_line_arguments.DoLex = true;
+				command_line_arguments.DoParse = command_line_arguments.DoValidate = command_line_arguments.DoTacky = command_line_arguments.DoCodegen = false;
+			}
+			else if (argument.ToLower() == "--parse")
+			{
+				command_line_arguments.DoLex = command_line_arguments.DoParse = true;
+				command_line_arguments.DoValidate = command_line_arguments.DoTacky = command_line_arguments.DoCodegen = false;
+			}
+			else if (argument.ToLower() == "--validate")
+			{
+				command_line_arguments.DoLex = command_line_arguments.DoParse = command_line_arguments.DoValidate = true;
+				command_line_arguments.DoTacky = command_line_arguments.DoCodegen = false;
+			}
+			else if (argument.ToLower() == "--tacky")
+			{
+				command_line_arguments.DoLex = command_line_arguments.DoParse = command_line_arguments.DoValidate = command_line_arguments.DoTacky = true;
+				command_line_arguments.DoCodegen = false;
+			}
+			else if (argument.ToLower() == "--codegen")
+			{
+				command_line_arguments.DoLex = command_line_arguments.DoParse = command_line_arguments.DoValidate = command_line_arguments.DoTacky = command_line_arguments.DoCodegen = true;
+			}
+			else if (string.IsNullOrEmpty(input_path))
+			{
+				input_path = argument;
+			}
+			else
+			{
+				output_path = argument;
+			}
+		}
+
+		if (string.IsNullOrEmpty(input_path) || string.IsNullOrEmpty(output_path)) System.Environment.Exit(1);
+
+		CompileFile(input_path, output_path, command_line_arguments);
+	}
+
+	static void CompileFile(string input_path, string output_path, CommandLineArguments arguments)
+	{
 		string source = File.ReadAllText(input_path);
-		
+
 		Console.WriteLine("------");
 		Console.WriteLine("Source");
 		Console.WriteLine("------");
 		Console.WriteLine(source);
 		Console.WriteLine("------\n");
-		
+
+		if (!arguments.DoLex) return;
+
 		Console.WriteLine("------");
 		Console.WriteLine("Tokens");
 		Console.WriteLine("------");
@@ -38,9 +100,11 @@ class Application {
 			Console.Error.WriteLine(e.Message);
 			Environment.Exit(1);
 		}
-		
+
+		if (!arguments.DoParse) return;
+
 		Console.WriteLine("------\n");
-		
+
 		Console.WriteLine("----------");
 		Console.WriteLine("Parse Tree");
 		Console.WriteLine("----------");
@@ -56,16 +120,20 @@ class Application {
 			Console.Error.WriteLine(e.Message);
 			Environment.Exit(1);
 		}
-		
+
+		if (!arguments.DoValidate) return;
+
 		Console.WriteLine("----------\n");
 
 		Console.WriteLine("-------------------");
 		Console.WriteLine("Resolved Parse Tree");
 		Console.WriteLine("-------------------");
 
+		SymbolTable symbol_table = null;
 		try
 		{
-			SemanticAnalzyer.ResolveVariables(parse_tree);
+			SemanticAnalzyer.ResolveIdentifiers(parse_tree);
+			symbol_table = SemanticAnalzyer.CheckTypes(parse_tree);
 			SemanticAnalzyer.LabelLoops(parse_tree);
 			Console.WriteLine(parse_tree);
 		}
@@ -74,38 +142,42 @@ class Application {
 			Console.Error.WriteLine(e.Message);
 			Environment.Exit(1);
 		}
-		
+
+		if (!arguments.DoTacky) return;
+
 		Console.WriteLine("-------------------\n");
-		
+
 		Console.WriteLine("-----------------");
 		Console.WriteLine("Intermediate Tree");
 		Console.WriteLine("-----------------");
-		
+
 		IntermediateTree intermediate_tree = IntermediateGenerator.Generate(parse_tree);
 		Console.WriteLine(intermediate_tree);
-		
+
+		if (!arguments.DoCodegen) return;
+
 		Console.WriteLine("-----------------\n");
-		
+
 		Console.WriteLine("-------------");
 		Console.WriteLine("Assembly Tree");
 		Console.WriteLine("-------------");
-		
+
 		AssemblyTree assembly_tree = CodeGenerator.Generate(intermediate_tree);
 		Console.WriteLine(assembly_tree);
-		
+
 		Console.WriteLine("-------------");
-		
+
 		Console.WriteLine("---------");
 		Console.WriteLine("Optimizer");
 		Console.WriteLine("---------");
-		
+
 		CodeOptimizer.AssignVariables(assembly_tree);
 		CodeOptimizer.FixVariableAccesses(assembly_tree);
 		Console.WriteLine(assembly_tree);
-		
+
 		Console.WriteLine("--------");
 
 		using StreamWriter output_file = new StreamWriter(output_path);
-		CodeEmitter.Emit(assembly_tree, output_file);
+		CodeEmitter.Emit(assembly_tree, symbol_table, output_file);
 	}
 }

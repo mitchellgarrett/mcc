@@ -5,6 +5,7 @@ namespace FTG.Studios.MCC
 		
 		// Punctuation
 		public const char semicolon = ';';
+		public const char comma = ',';
 		public const char open_parenthesis = '(';
 		public const char close_parenthesis = ')';
 		public const char open_brace = '{';

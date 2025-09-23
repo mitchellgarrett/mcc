@@ -402,3 +402,4 @@ programs/addition
 programs/and
 programs/precedence
 programs/return_unary
+programs/hello_world

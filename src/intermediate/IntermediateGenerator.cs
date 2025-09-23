@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace FTG.Studios.MCC {
 	
@@ -23,20 +24,32 @@ namespace FTG.Studios.MCC {
 		}
 		
 		static IntermediateNode.Program GenerateProgram(ParseNode.Program program) {
-			IntermediateNode.Function function = GenerateFunction(program.Function);
-			return new IntermediateNode.Program(function);
+			List<IntermediateNode.Function> functions = new List<IntermediateNode.Function>();
+			foreach (var function in program.FunctionDeclarations)
+			{
+				IntermediateNode.Function intermediate_function = GenerateFunctionDeclaration(function);
+				if (intermediate_function != null) functions.Add(intermediate_function);
+			}
+			return new IntermediateNode.Program(functions);
 		}
 		
-		static IntermediateNode.Function GenerateFunction(ParseNode.Function function) {
+		static IntermediateNode.Function GenerateFunctionDeclaration(ParseNode.FunctionDeclaration function) {
+			// If the function has no body, there is nothing to generate
+			if (function.Body == null) return null;
+			
 			string identifier = function.Identifier.Value;
+			
+			// Convert list of ParseNode.Identifiers to array of strings
+			IntermediateNode.Variable[] parameters = function.Parameters.Select(p => new IntermediateNode.Variable(p.Value)).ToArray();
+			
+			// Generate instructions for the body of the function
 			List<IntermediateNode.Instruction> instructions = new List<IntermediateNode.Instruction>();
-
 			GenerateBlock(ref instructions, function.Body);
 
 			// Add Return(0) to the end of every function in case there is no explicit return given
 			GenerateReturnStatement(ref instructions, new ParseNode.Return(new ParseNode.Constant(0)));
 			
-			return new IntermediateNode.Function(identifier, instructions.ToArray());
+			return new IntermediateNode.Function(identifier, parameters, instructions.ToArray());
 		}
 
 		static void GenerateBlock(ref List<IntermediateNode.Instruction> instructions, ParseNode.Block block)
@@ -49,11 +62,11 @@ namespace FTG.Studios.MCC {
 
 		static void GenerateBlockItem(ref List<IntermediateNode.Instruction> instructions, ParseNode.BlockItem item)
 		{
-			if (item is ParseNode.Declaration declaration) GenerateDeclaration(ref instructions, declaration);
+			if (item is ParseNode.VariableDeclaration declaration) GenerateVariableDeclaration(ref instructions, declaration);
 			if (item is ParseNode.Statement statement) GenerateStatement(ref instructions, statement);
 		}
 
-		static void GenerateDeclaration(ref List<IntermediateNode.Instruction> instructions, ParseNode.Declaration declaration)
+		static void GenerateVariableDeclaration(ref List<IntermediateNode.Instruction> instructions, ParseNode.VariableDeclaration declaration)
 		{
 			// If declaration initializer, if it exists
 			IntermediateNode.Operand source = null;
@@ -136,9 +149,6 @@ namespace FTG.Studios.MCC {
 			}
 			
 			GenerateIfStatementWithElse(ref instructions, statement);
-			
-			
-			
 		}
 
 		static void GenerateIfStatementWithoutElse(ref List<IntermediateNode.Instruction> instructions, ParseNode.If statement)
@@ -198,7 +208,7 @@ namespace FTG.Studios.MCC {
 
 		static void GenerateForLoop(ref List<IntermediateNode.Instruction> instructions, ParseNode.For statement)
 		{
-			if (statement.Initialization is ParseNode.Declaration init_declaration) GenerateDeclaration(ref instructions, init_declaration);
+			if (statement.Initialization is ParseNode.VariableDeclaration init_declaration) GenerateVariableDeclaration(ref instructions, init_declaration);
 			else if (statement.Initialization is ParseNode.Expression init_expression) GenerateExpression(ref instructions, init_expression);
 			else if (statement.Initialization is null) { }
 			else throw new SemanticAnalzyerException("", "");
@@ -227,6 +237,7 @@ namespace FTG.Studios.MCC {
 				if (expression is ParseNode.BinaryExpression binary) return GenerateBinaryExpression(ref instructions, binary);
 				if (expression is ParseNode.Assignment assignment) return GenerateAssignment(ref instructions, assignment);
 				if (expression is ParseNode.Conditional conditional) return GenerateConditional(ref instructions, conditional);
+				if (expression is ParseNode.FunctionCall function_call) return GenerateFunctionCall(ref instructions, function_call);
 
 				throw new IntermediateGeneratorException("GenerateExpression", expression.GetType(), expression, typeof(ParseNode.Factor), typeof(ParseNode.BinaryExpression));
 			}
@@ -296,35 +307,52 @@ namespace FTG.Studios.MCC {
 
 			return result;
 		}
-		
-		static IntermediateNode.Operand GenerateLogicalAndExpression(ref List<IntermediateNode.Instruction> instructions, ParseNode.BinaryExpression expression)
+
+		static IntermediateNode.Operand GenerateFunctionCall(ref List<IntermediateNode.Instruction> instructions, ParseNode.FunctionCall function_call)
 		{
-			int comment_index = instructions.Count;
+			instructions.Add(new IntermediateNode.Comment($"call {function_call.Identifier.Value}"));
+			
+			List<IntermediateNode.Operand> arguments = new List<IntermediateNode.Operand>();
+			foreach (var argument in function_call.Arguments)
+			{
+				IntermediateNode.Operand argument_value = GenerateExpression(ref instructions, argument);
+				arguments.Add(argument_value);
+			}
 
-			// If lhs == 0, jump to false
-			IntermediateNode.Operand lhs = GenerateExpression(ref instructions, expression.LeftExpression);
-			IntermediateNode.Label false_label = NextTemporaryLabel;
-			instructions.Add(new IntermediateNode.JumpIfZero(false_label.Identifier, lhs));
-
-			// If rhs == 0, jump to false
-			IntermediateNode.Operand rhs = GenerateExpression(ref instructions, expression.RightExpression);
-			instructions.Add(new IntermediateNode.JumpIfZero(false_label.Identifier, rhs));
-
-			// If lhs == rhs == 1, set result = 1, jump to end
 			IntermediateNode.Operand destination = NextTemporaryVariable;
-			IntermediateNode.Label end_label = NextTemporaryLabel;
-			instructions.Add(new IntermediateNode.Copy(new IntermediateNode.Constant(1), destination));
-			instructions.Add(new IntermediateNode.Jump(end_label.Identifier));
-
-			// If false, set result = 0
-			instructions.Add(false_label);
-			instructions.Add(new IntermediateNode.Copy(new IntermediateNode.Constant(0), destination));
-			instructions.Add(end_label);
-
-			instructions.Insert(comment_index, new IntermediateNode.Comment($"{destination.ToCommentString()} = {lhs.ToCommentString()} {expression.Operator.GetOperator()} {rhs.ToCommentString()}"));
+			instructions.Add(new IntermediateNode.FunctionCall(function_call.Identifier.Value, arguments.ToArray(), destination));
 
 			return destination;
 		}
+		
+		static IntermediateNode.Operand GenerateLogicalAndExpression(ref List<IntermediateNode.Instruction> instructions, ParseNode.BinaryExpression expression)
+			{
+				int comment_index = instructions.Count;
+
+				// If lhs == 0, jump to false
+				IntermediateNode.Operand lhs = GenerateExpression(ref instructions, expression.LeftExpression);
+				IntermediateNode.Label false_label = NextTemporaryLabel;
+				instructions.Add(new IntermediateNode.JumpIfZero(false_label.Identifier, lhs));
+
+				// If rhs == 0, jump to false
+				IntermediateNode.Operand rhs = GenerateExpression(ref instructions, expression.RightExpression);
+				instructions.Add(new IntermediateNode.JumpIfZero(false_label.Identifier, rhs));
+
+				// If lhs == rhs == 1, set result = 1, jump to end
+				IntermediateNode.Operand destination = NextTemporaryVariable;
+				IntermediateNode.Label end_label = NextTemporaryLabel;
+				instructions.Add(new IntermediateNode.Copy(new IntermediateNode.Constant(1), destination));
+				instructions.Add(new IntermediateNode.Jump(end_label.Identifier));
+
+				// If false, set result = 0
+				instructions.Add(false_label);
+				instructions.Add(new IntermediateNode.Copy(new IntermediateNode.Constant(0), destination));
+				instructions.Add(end_label);
+
+				instructions.Insert(comment_index, new IntermediateNode.Comment($"{destination.ToCommentString()} = {lhs.ToCommentString()} {expression.Operator.GetOperator()} {rhs.ToCommentString()}"));
+
+				return destination;
+			}
 		
 		static IntermediateNode.Operand GenerateLogicalOrExpression(ref List<IntermediateNode.Instruction> instructions, ParseNode.BinaryExpression expression) {
 			int comment_index = instructions.Count;

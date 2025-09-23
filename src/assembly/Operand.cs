@@ -13,8 +13,10 @@ namespace FTG.Studios.MCC {
 				Value = value;
 			}
 			
-			public override string Emit() {
-				return Value.Emit();
+			// TODO: This changes depending on 32 or 64 bit
+			public override string Emit()
+			{
+				return Value.Emit32();
 			}
 			
 			public override string ToString() {

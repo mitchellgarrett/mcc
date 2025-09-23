@@ -1,2 +1,6 @@
 #!/bin/sh
-make run FILE=$1
+if [ $1 == "-c" ]; then
+	make lib FILE=$2
+else
+	make exe FILE=$1
+fi

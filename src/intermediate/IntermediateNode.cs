@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace FTG.Studios.MCC {
 	
 	public static partial class IntermediateNode {
@@ -5,28 +7,30 @@ namespace FTG.Studios.MCC {
 		public abstract class Node { }
 		
 		public class Program : Node {
-			public readonly Function Function;
+			public readonly List<Function> Functions;
 			
-			public Program(Function function) {
-				Function = function;
+			public Program(List<Function> functions) {
+				Functions = functions;
 			}
 			
 			public override string ToString() {
-				return $"Program(\n{Function}".Replace("\n", "\n ") + "\n)";
+				return $"Program(\n{string.Join(", ", Functions)}".Replace("\n", "\n ") + "\n)";
 			}
 		}
 		
 		public class Function : Node {
 			public readonly string Identifier;
+			public readonly Variable[] Parameters;
 			public readonly Instruction[] Body;
 			
-			public Function(string identifier, Instruction[] body) {
+			public Function(string identifier, Variable[] parameters, Instruction[] body) {
 				Identifier = identifier;
+				Parameters = parameters;
 				Body = body;
 			}
 			
 			public override string ToString() {
-				string output = $"Function(\n Identifier=\"{Identifier}\"\n Body(\n  ";
+				string output = $"Function(\n Identifier=\"{Identifier}\"\n Parameters({string.Join<Variable>(", ", Parameters)})\n Body(\n  ";
 				foreach (var instruction in Body) {
 					output += (instruction.ToString() + '\n').Replace("\n", "\n  ");
 				}
