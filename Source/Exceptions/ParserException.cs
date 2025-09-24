@@ -1,7 +1,7 @@
 using System;
 using FTG.Studios.MCC.Lexer;
 
-namespace FTG.Studios.MCC;
+namespace FTG.Studios.MCC.Parser;
 
 public class ParserException : Exception
 {

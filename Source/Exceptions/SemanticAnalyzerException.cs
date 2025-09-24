@@ -1,6 +1,6 @@
 using System;
 
-namespace FTG.Studios.MCC;
+namespace FTG.Studios.MCC.SemanticAnalysis;
 
 public class SemanticAnalzyerException : Exception
 {

@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
-using FTG.Studios.MCC;
 using FTG.Studios.MCC.Lexer;
 using FTG.Studios.MCC.Parser;
 using FTG.Studios.MCC.SemanticAnalysis;
