@@ -30,6 +30,40 @@ public static class Lexer
 			}
 
 			char next = index + 1 < source.Length ? source[index + 1] : '\0';
+			
+			// Check for single line comment and skip rest of line
+			if (c.ToString() + next == Syntax.single_line_comment)
+			{
+				index++;
+				while (index < source.Length - 1 && (c = source[++index]) != '\n')
+				{
+					lexeme += c;
+				}
+				// TODO: Propogate comments to final program
+				//tokens.Add(new Token(current_line, TokenType.Comment, lexeme));
+				
+				current_line++;
+				lexeme = string.Empty;
+				continue;
+			}
+
+			// Check for multline comment and skip until end of comment
+			if (c.ToString() + next == Syntax.multi_line_comment_begin)
+			{
+				index++;
+				while (index < source.Length - 2 && (c = source[++index]) != '\0' && (source[index].ToString() + source[index + 1]) != Syntax.multi_line_comment_end)
+				{
+					if (c != '\n') lexeme += c;
+					else lexeme += ' ';
+				}
+				// TODO: Propogate comments to final program
+				//tokens.Add(new Token(current_line, TokenType.Comment, lexeme));
+
+				index++;
+				current_line++;
+				lexeme = string.Empty;
+				continue;
+			}
 
 			// Check if current character plus next character is a valid operator
 			// Takes care of '==' being parsed into two '=' tokens

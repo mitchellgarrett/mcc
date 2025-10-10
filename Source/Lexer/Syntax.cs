@@ -39,7 +39,7 @@ public static class Syntax {
 	public const string identifier = @"[a-zA-Z]\w*\b";
 	public const string integer_literal = @"^[0-9]+\b$";
 
-	// TODO: Support comments
+	// Comments
 	public const string single_line_comment = "//";
 	public const string multi_line_comment_begin = "/*";
 	public const string multi_line_comment_end = "*/";
