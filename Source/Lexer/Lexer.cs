@@ -11,7 +11,7 @@ public static class Lexer
 	public static List<Token> Tokenize(string source)
 	{
 		current_line = 1;
-		List<Token> tokens = new List<Token>();
+		List<Token> tokens = [];
 		string lexeme = string.Empty;
 		for (int index = 0; index < source.Length; index++)
 		{

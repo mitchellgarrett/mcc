@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+using FTG.Studios.MCC.CodeGeneration;
 using FTG.Studios.MCC.Lexer;
 
 namespace FTG.Studios.MCC.Assembly;
@@ -10,16 +12,10 @@ public static partial class AssemblyNode
 		public abstract string Emit();
 	}
 
-	public class MOV : Instruction
+	public class MOV(Operand source, Operand destination) : Instruction
 	{
-		public Operand Source;
-		public Operand Destination;
-
-		public MOV(Operand source, Operand destination)
-		{
-			Source = source;
-			Destination = destination;
-		}
+		public Operand Source = source;
+		public Operand Destination = destination;
 
 		public override string Emit()
 		{
@@ -45,14 +41,9 @@ public static partial class AssemblyNode
 		}
 	}
 
-	public class IDIV : Instruction
+	public class IDIV(Operand operand) : Instruction
 	{
-		public Operand Operand;
-
-		public IDIV(Operand operand)
-		{
-			Operand = operand;
-		}
+		public Operand Operand = operand;
 
 		public override string Emit()
 		{
@@ -78,16 +69,10 @@ public static partial class AssemblyNode
 		}
 	}
 
-	public class CMP : Instruction
+	public class CMP(Operand left_operand, Operand right_operand) : Instruction
 	{
-		public Operand LeftOperand;
-		public Operand RightOperand;
-
-		public CMP(Operand left_operand, Operand right_operand)
-		{
-			LeftOperand = left_operand;
-			RightOperand = right_operand;
-		}
+		public Operand LeftOperand = left_operand;
+		public Operand RightOperand = right_operand;
 
 		public override string Emit()
 		{
@@ -100,14 +85,9 @@ public static partial class AssemblyNode
 		}
 	}
 
-	public class JMP : Instruction
+	public class JMP(string identifier) : Instruction
 	{
-		public readonly string Identifier;
-
-		public JMP(string identifier)
-		{
-			Identifier = identifier;
-		}
+		public readonly string Identifier = identifier;
 
 		public override string Emit()
 		{
@@ -120,16 +100,10 @@ public static partial class AssemblyNode
 		}
 	}
 
-	public class JMPCC : Instruction
+	public class JMPCC(string identifier, ConditionType condition) : Instruction
 	{
-		public readonly string Identifier;
-		public readonly ConditionType Condition;
-
-		public JMPCC(string identifier, ConditionType condition)
-		{
-			Identifier = identifier;
-			Condition = condition;
-		}
+		public readonly string Identifier = identifier;
+		public readonly ConditionType Condition = condition;
 
 		public override string Emit()
 		{
@@ -142,16 +116,10 @@ public static partial class AssemblyNode
 		}
 	}
 
-	public class SETCC : Instruction
+	public class SETCC(Operand operand, ConditionType condition) : Instruction
 	{
-		public Operand Operand;
-		public readonly ConditionType Condition;
-
-		public SETCC(Operand operand, ConditionType condition)
-		{
-			Operand = operand;
-			Condition = condition;
-		}
+		public Operand Operand = operand;
+		public readonly ConditionType Condition = condition;
 
 		public override string Emit()
 		{
@@ -164,14 +132,9 @@ public static partial class AssemblyNode
 		}
 	}
 
-	public class Label : Instruction
+	public class Label(string identifier) : Instruction
 	{
-		public readonly string Identifier;
-
-		public Label(string identifier)
-		{
-			Identifier = identifier;
-		}
+		public readonly string Identifier = identifier;
 
 		public override string Emit()
 		{
@@ -184,14 +147,9 @@ public static partial class AssemblyNode
 		}
 	}
 
-	public class AllocateStack : Instruction
+	public class AllocateStack(int offset) : Instruction
 	{
-		public int Offset;
-
-		public AllocateStack(int offset)
-		{
-			Offset = offset;
-		}
+		public int Offset = offset;
 
 		public override string Emit()
 		{
@@ -204,14 +162,9 @@ public static partial class AssemblyNode
 		}
 	}
 
-	public class DeallocateStack : Instruction
+	public class DeallocateStack(int offset) : Instruction
 	{
-		public int Offset;
-
-		public DeallocateStack(int offset)
-		{
-			Offset = offset;
-		}
+		public int Offset = offset;
 
 		public override string Emit()
 		{
@@ -224,16 +177,10 @@ public static partial class AssemblyNode
 		}
 	}
 
-	public class Unary : Instruction
+	public class Unary(Syntax.UnaryOperator @operator, Operand operand) : Instruction
 	{
-		public readonly Syntax.UnaryOperator Operator;
-		public Operand Operand;
-
-		public Unary(Syntax.UnaryOperator @operator, Operand operand)
-		{
-			Operator = @operator;
-			Operand = operand;
-		}
+		public readonly Syntax.UnaryOperator Operator = @operator;
+		public Operand Operand = operand;
 
 		public override string Emit()
 		{
@@ -251,18 +198,11 @@ public static partial class AssemblyNode
 		}
 	}
 
-	public class Binary : Instruction
+	public class Binary(Syntax.BinaryOperator @operator, Operand source, Operand destination) : Instruction
 	{
-		public readonly Syntax.BinaryOperator Operator;
-		public Operand Source;
-		public Operand Destination;
-
-		public Binary(Syntax.BinaryOperator @operator, Operand source, Operand destination)
-		{
-			Operator = @operator;
-			Source = source;
-			Destination = destination;
-		}
+		public readonly Syntax.BinaryOperator Operator = @operator;
+		public Operand Source = source;
+		public Operand Destination = destination;
 
 		public override string Emit()
 		{
@@ -281,14 +221,9 @@ public static partial class AssemblyNode
 		}
 	}
 
-	public class Push : Instruction
+	public class Push(Operand operand) : Instruction
 	{
-		public Operand Operand;
-
-		public Push(Operand operand)
-		{
-			Operand = operand;
-		}
+		public Operand Operand = operand;
 
 		public override string Emit()
 		{
@@ -304,17 +239,15 @@ public static partial class AssemblyNode
 		}
 	}
 	
-	public class Call : Instruction
+	public class Call(string identifier, bool is_defined) : Instruction
 	{
-		public string Identifier;
+		public readonly string Identifier = identifier;
+		public readonly bool IsDefined = is_defined;
 
-		public Call(string identifier)
-		{
-			Identifier = identifier;
-		}
-		
 		public override string Emit()
 		{
+			if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) return $"call {CodeEmitter.macos_function_prefix}{Identifier}";
+			if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && !IsDefined) return $"call {Identifier}{CodeEmitter.linux_plt_suffix}";
 			return $"call {Identifier}";
 		}
 

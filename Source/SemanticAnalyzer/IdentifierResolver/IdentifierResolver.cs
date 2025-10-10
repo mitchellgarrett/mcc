@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using FTG.Studios.MCC.Parser;
 
@@ -8,34 +9,72 @@ public static class IdentifierResolver
 	public static void ResolveIdentifiers(ParseTree tree)
 	{
 		IdentifierMap.Reset();
-		IdentifierMap identifier_map = new IdentifierMap();
+		IdentifierMap identifier_map = new();
 		ResolveIdentifiersInProgram(identifier_map, tree.Program);
 	}
 
 	static void ResolveIdentifiersInProgram(IdentifierMap identifier_map, ParseNode.Program program)
 	{
 		// TODO: Make each function replace itself so the returning of a new value isn't necessary
-		for (int i = 0; i < program.FunctionDeclarations.Count; i++)
-			program.FunctionDeclarations[i] = ResolveIdentifiersInFunctionDeclaration(identifier_map, program.FunctionDeclarations[i], true);
+		for (int i = 0; i < program.Declarations.Count; i++)
+		{
+			if (program.Declarations[i] is ParseNode.VariableDeclaration variable_declaration) program.Declarations[i] = ResolveIdentifiersInFileScopeVariableDeclaration(identifier_map, variable_declaration);
+			if (program.Declarations[i] is ParseNode.FunctionDeclaration function_declaration) program.Declarations[i] = ResolveIdentifiersInFunctionDeclaration(identifier_map, function_declaration, true);
+		}
 	}
 
-	static ParseNode.FunctionDeclaration ResolveIdentifiersInFunctionDeclaration(IdentifierMap identifier_map, ParseNode.FunctionDeclaration function, bool has_external_linkage)
+	static ParseNode.FunctionDeclaration ResolveIdentifiersInFunctionDeclaration(IdentifierMap identifier_map, ParseNode.FunctionDeclaration function_declaration, bool has_linkage)
 	{
-		string unique_identifier = identifier_map.InsertUniqueIdentifier(function.Identifier.Value, has_external_linkage, SymbolTable.SymbolClass.Function);
+		string unique_identifier = identifier_map.InsertUniqueIdentifier(function_declaration.Identifier.Value, has_linkage, SymbolTable.SymbolClass.Function);
 
 		identifier_map = identifier_map.Copy();
 
-		List<ParseNode.Identifier> unique_parameters = new List<ParseNode.Identifier>();
-		foreach (var parameter in function.Parameters)
+		List<ParseNode.Identifier> unique_parameters = [];
+		foreach (var parameter in function_declaration.Parameters)
 		{
-			ParseNode.Identifier unique_parameter = new ParseNode.Identifier(identifier_map.InsertUniqueIdentifier(parameter.Value, false, SymbolTable.SymbolClass.Variable));
+			ParseNode.Identifier unique_parameter = new(identifier_map.InsertUniqueIdentifier(parameter.Value, false, SymbolTable.SymbolClass.Variable));
 			unique_parameters.Add(unique_parameter);
 		}
 
 		ParseNode.Block unique_body = null;
-		if (function.Body != null) unique_body = ResolveIdentifiersInBlock(identifier_map, function.Body);
+		if (function_declaration.Body != null) unique_body = ResolveIdentifiersInBlock(identifier_map, function_declaration.Body);
 
-		return new ParseNode.FunctionDeclaration(new ParseNode.Identifier(unique_identifier), unique_parameters, unique_body);
+		return new ParseNode.FunctionDeclaration(new ParseNode.Identifier(unique_identifier), function_declaration.ReturnType, function_declaration.StorageClass, unique_parameters, unique_body);
+	}
+
+	static ParseNode.VariableDeclaration ResolveIdentifiersInFileScopeVariableDeclaration(IdentifierMap identifier_map, ParseNode.VariableDeclaration variable_declaration)
+	{
+		// A file scope variable should be either unitialized or a constant, so its expression does not need to be checked
+		identifier_map.InsertUniqueIdentifier(variable_declaration.Identifier.Value, true, SymbolTable.SymbolClass.Variable);
+		return variable_declaration;
+	}
+	
+	static ParseNode.VariableDeclaration ResolveIdentifiersInBlockScopeVariableDeclaration(IdentifierMap identifier_map, ParseNode.VariableDeclaration variable_declaration)
+	{
+		// A variable cannot be defined in the same scope with different linkage
+		if (identifier_map.TryGetUniqueIdentifier(variable_declaration.Identifier.Value, out IdentifierMapEntry old_entry))
+		{
+			if (old_entry.FromCurrentScope)
+			{
+				if (!old_entry.HasLinkage || variable_declaration.StorageClass != ParseNode.StorageClass.Extern)
+					throw new SemanticAnalzyerException($"Conflicting declarations for variable \"{variable_declaration.Identifier.Value}\".", variable_declaration.Identifier.Value);
+			}
+		}
+		
+		// If a variable is extern, its identifier is not renamed
+		if (variable_declaration.StorageClass == ParseNode.StorageClass.Extern)
+		{
+			identifier_map.InsertUniqueIdentifier(variable_declaration.Identifier.Value, true, SymbolTable.SymbolClass.Variable);
+			return variable_declaration;
+		}
+		
+		// If a variable is not extern, its identifier is renamed
+		string unique_identifier = identifier_map.InsertUniqueIdentifier(variable_declaration.Identifier.Value, false, SymbolTable.SymbolClass.Variable);
+
+		ParseNode.Expression resolved_initialization = null;
+		if (variable_declaration.Source != null) resolved_initialization = ResolveIdentifiersInExpression(identifier_map, variable_declaration.Source);
+
+		return new ParseNode.VariableDeclaration(new ParseNode.Identifier(unique_identifier), variable_declaration.Type, variable_declaration.StorageClass, resolved_initialization);
 	}
 	
 	static ParseNode.Block ResolveIdentifiersInBlock(IdentifierMap identifier_map, ParseNode.Block block)
@@ -48,20 +87,10 @@ public static class IdentifierResolver
 				if (function_declaration.Body != null) throw new SemanticAnalzyerException($"Nested definition for function \"{function_declaration.Identifier.Value}\" is not allowed.", function_declaration.Identifier.Value);
 				block.Items[index] = ResolveIdentifiersInFunctionDeclaration(identifier_map, function_declaration, true);
 			}
-			if (block.Items[index] is ParseNode.VariableDeclaration variable_declaration) block.Items[index] = ResolveIdentifiersInVariableDeclaration(identifier_map, variable_declaration);
+			if (block.Items[index] is ParseNode.VariableDeclaration variable_declaration) block.Items[index] = ResolveIdentifiersInBlockScopeVariableDeclaration(identifier_map, variable_declaration);
 			if (block.Items[index] is ParseNode.Statement statement) block.Items[index] = ResolveIdentifiersInStatement(identifier_map, statement);
 		}
 		return block;
-	}
-
-	static ParseNode.VariableDeclaration ResolveIdentifiersInVariableDeclaration(IdentifierMap identifier_map, ParseNode.VariableDeclaration declaration)
-	{
-		string unique_identifier = identifier_map.InsertUniqueIdentifier(declaration.Identifier.Value, false, SymbolTable.SymbolClass.Variable);
-
-		ParseNode.Expression resolved_initialization = null;
-		if (declaration.Source != null) resolved_initialization = ResolveIdentifiersInExpression(identifier_map, declaration.Source);
-
-		return new ParseNode.VariableDeclaration(new ParseNode.Identifier(unique_identifier), resolved_initialization);
 	}
 
 	static ParseNode.Statement ResolveIdentifiersInStatement(IdentifierMap identifier_map, ParseNode.Statement statement)
@@ -114,7 +143,7 @@ public static class IdentifierResolver
 	static ParseNode.For ResolveIdentifiersInFor(IdentifierMap identifier_map, ParseNode.For @for)
 	{
 		ParseNode.ForInitialization initialization;
-		if (@for.Initialization is ParseNode.VariableDeclaration init_declaration) initialization = ResolveIdentifiersInVariableDeclaration(identifier_map, init_declaration);
+		if (@for.Initialization is ParseNode.VariableDeclaration init_declaration) initialization = ResolveIdentifiersInBlockScopeVariableDeclaration(identifier_map, init_declaration);
 		else if (@for.Initialization is ParseNode.Expression init_expression) initialization = ResolveIdentifiersInExpression(identifier_map, init_expression);
 		else if (@for.Initialization == null) initialization = null;
 		else throw new SemanticAnalzyerException($"Unhandled for initialization type \"{@for.Initialization}\"", @for.Initialization.ToString());

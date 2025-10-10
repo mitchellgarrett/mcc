@@ -156,7 +156,7 @@ class Application
 		Console.WriteLine("Intermediate Tree");
 		Console.WriteLine("-----------------");
 
-		IntermediateTree intermediate_tree = IntermediateGenerator.Generate(parse_tree);
+		IntermediateTree intermediate_tree = IntermediateGenerator.Generate(parse_tree, symbol_table);
 		Console.WriteLine(intermediate_tree);
 
 		if (!arguments.DoCodegen) return;
@@ -167,7 +167,7 @@ class Application
 		Console.WriteLine("Assembly Tree");
 		Console.WriteLine("-------------");
 
-		AssemblyTree assembly_tree = AssemblyGenerator.Generate(intermediate_tree);
+		AssemblyTree assembly_tree = AssemblyGenerator.Generate(intermediate_tree, symbol_table);
 		Console.WriteLine(assembly_tree);
 
 		Console.WriteLine("-------------");
@@ -176,13 +176,13 @@ class Application
 		Console.WriteLine("Optimizer");
 		Console.WriteLine("---------");
 
-		CodeOptimizer.AssignVariables(assembly_tree);
+		CodeOptimizer.AssignVariables(assembly_tree, symbol_table);
 		CodeOptimizer.FixVariableAccesses(assembly_tree);
 		Console.WriteLine(assembly_tree);
 
 		Console.WriteLine("--------");
 
-		using StreamWriter output_file = new StreamWriter(output_path);
-		CodeEmitter.Emit(assembly_tree, symbol_table, output_file);
+		using StreamWriter output_file = new(output_path);
+		CodeEmitter.Emit(assembly_tree, output_file);
 	}
 }

@@ -1,38 +1,59 @@
+using System.Collections;
 using System.Collections.Generic;
+using FTG.Studios.MCC.Parser;
 
 namespace FTG.Studios.MCC.SemanticAnalysis;
 
-public struct SymbolTableEntry
+public abstract class IdentifierAttributes
 {
-	public SymbolTable.SymbolClass SymbolClass;
-	public SymbolTable.Type ReturnType;
-	public int ParamaterCount;
-	public bool IsDefined;
-
-	public SymbolTableEntry(SymbolTable.SymbolClass symbol_class, SymbolTable.Type return_type, bool is_defined, int parameter_count)
+	public class Function(bool is_defined, bool is_global) : IdentifierAttributes
 	{
-		SymbolClass = symbol_class;
-		ReturnType = return_type;
-		IsDefined = is_defined;
-		ParamaterCount = parameter_count;
+		public bool IsDefined = is_defined;
+		public bool IsGlobal = is_global;
+	}
+
+	public class Static(InitialValue value, bool is_global) : IdentifierAttributes
+	{
+		public InitialValue InitialValue = value;
+		public bool IsGlobal = is_global;
+	}
+
+	public class Local : IdentifierAttributes { }
+}
+
+public abstract class InitialValue
+{
+	public class None : InitialValue { }
+	public class Tentative : InitialValue { }
+
+	public class Constant(int value) : InitialValue
+	{
+		public int Value = value;
 	}
 }
 
-public class SymbolTable
+public struct SymbolTableEntry(SymbolTable.SymbolClass symbol_class, ParseNode.Type return_type, int parameter_count, IdentifierAttributes attributes)
+{
+	public SymbolTable.SymbolClass SymbolClass = symbol_class;
+	public ParseNode.Type ReturnType = return_type;
+	public int ParamaterCount = parameter_count;
+	public IdentifierAttributes Attributes = attributes;
+}
+
+public class SymbolTable : IEnumerable<(string, SymbolTableEntry)>
 {
 	public enum SymbolClass { Variable, Function };
-	public enum Type { Integer };
 
-	readonly Dictionary<string, SymbolTableEntry> symbols = new Dictionary<string, SymbolTableEntry>();
+	readonly Dictionary<string, SymbolTableEntry> symbols = [];
 
-	public void AddVariable(string identifier, Type type, bool is_defined)
+	public void AddVariable(string identifier, ParseNode.Type type, IdentifierAttributes attributes)
 	{
-		symbols[identifier] = new SymbolTableEntry(SymbolClass.Variable, type, is_defined, 0);
+		symbols[identifier] = new SymbolTableEntry(SymbolClass.Variable, type, 0, attributes);
 	}
 
-	public void AddFunction(string identifier, Type type, bool is_defined, int parameter_count)
+	public void AddFunction(string identifier, ParseNode.Type type, int parameter_count, IdentifierAttributes attributes)
 	{
-		symbols[identifier] = new SymbolTableEntry(SymbolClass.Function, type, is_defined, parameter_count);
+		symbols[identifier] = new SymbolTableEntry(SymbolClass.Function, type, parameter_count, attributes);
 	}
 
 	public SymbolTableEntry GetSymbol(string identifier)
@@ -49,5 +70,15 @@ public class SymbolTable
 	public bool ContainsSymbol(string identifier)
 	{
 		return symbols.ContainsKey(identifier);
+	}
+
+	public IEnumerator<(string, SymbolTableEntry)> GetEnumerator()
+	{
+		foreach (var pair in symbols) yield return (pair.Key, pair.Value);
+	}
+
+	IEnumerator IEnumerable.GetEnumerator()
+	{
+		return GetEnumerator();
 	}
 }

@@ -6,52 +6,57 @@ public static partial class AssemblyNode {
 	
 	public abstract class Node { }
 	
-	public class Program : Node {
-		public readonly List<Function> Functions;
-		
-		public Program(List<Function> functions) {
-			Functions = functions;
-		}
-		
+	public class Program(List<TopLevel> definitions) : Node {
+		public readonly List<TopLevel> TopLevelDefinitions = definitions;
+
 		public override string ToString() {
-			return $"Program(\n{string.Join(", ", Functions)}".Replace("\n", "\n ") + "\n)";
+			return $"Program(\n{string.Join(", ", TopLevelDefinitions)}".Replace("\n", "\n ") + "\n)";
 		}
 	}
 	
-	public class Function : Node {
-		public readonly string Identifier;
-		public readonly Operand[] Parameters;
-		public List<Instruction> Body;
-		
-		public Function(string identifier, Operand[] parameters, List<Instruction> body) {
-			Identifier = identifier;
-			Parameters = parameters;
-			Body = body;
-		}
-		
-		public override string ToString() {
-			string output = $"Function(\n Identifier=\"{Identifier}\"\n Body(\n  ";
-			foreach (var instruction in Body) {
+	public abstract class TopLevel : Node;
+	
+	public class Function(string identifier, bool is_global, Operand[] parameters, List<Instruction> body) : TopLevel
+	{
+		public readonly string Identifier = identifier;
+		public readonly bool IsGlobal = is_global;
+		public readonly Operand[] Parameters = parameters;
+		public List<Instruction> Body = body;
+
+		public override string ToString()
+		{
+			string output = $"Function(\n Identifier=\"{Identifier}\", Global={IsGlobal},\n Body(\n  ";
+			foreach (var instruction in Body)
+			{
 				output += (instruction.ToString() + '\n').Replace("\n", "\n  ");
 			}
-			output += ")\n)"; 
+			output += ")\n)";
 			return output;
+		}
+	}
+	
+	public class StaticVariable(string identifier, bool is_global, int initial_value) : TopLevel
+	{
+		public readonly string Identifier = identifier;
+		public readonly bool IsGlobal = is_global;
+		public readonly int InitialValue = initial_value;
+
+		public override string ToString()
+		{
+			return $"StaticVariable(\"{Identifier}\", Global={IsGlobal}, InitialValue={InitialValue})";
 		}
 	}
 	
 	/// <summary>
 	/// Node to store useful comment data.
 	/// </summary>
-	public class Comment : Instruction {
-		public readonly object Data;
-		
-		public Comment(object data) {
-			Data = data;
-		}
+	public class Comment(object data) : Instruction
+	{
+		public readonly object Data = data;
 
 		public override string Emit()
 		{
-			return $"// {Data}".Replace("\n", "\n// ");
+			return '\n' + $"// {Data}".Replace("\n", "\n// ");
 		}
 
 		public override string ToString()

@@ -7,15 +7,11 @@ public static class ParseNode {
 	
 	public abstract class Node { }
 	
-	public class Program : Node {
-		public readonly List<FunctionDeclaration> FunctionDeclarations;
-		
-		public Program(List<FunctionDeclaration> functionDeclarations) {
-			FunctionDeclarations = functionDeclarations;
-		}
-		
+	public class Program(List<Declaration> declarations) : Node {
+		public readonly List<Declaration> Declarations = declarations;
+
 		public override string ToString() {
-			return $"Program(\n{string.Join(", ", FunctionDeclarations)}".Replace("\n", "\n ") + "\n)";
+			return $"Program(\n{string.Join(", ", Declarations)}".Replace("\n", "\n ") + "\n)";
 		}
 	}
 	
@@ -23,36 +19,34 @@ public static class ParseNode {
 	
 	public abstract class Declaration : BlockItem { }
 	
-	public class VariableDeclaration : Declaration, ForInitialization {
-		public readonly Identifier Identifier;
-		public readonly Expression Source;
-		
-		public VariableDeclaration(Identifier identifier, Expression source) {
-			Identifier = identifier;
-			Source = source;
-		}
+	public enum StorageClass { None, Static, Extern }
+	
+	public enum Type { Integer };
+	
+	public class VariableDeclaration(Identifier identifier, Type type, StorageClass storage_class, Expression source) : Declaration, ForInitialization
+	{
+		public readonly Identifier Identifier = identifier;
+		public readonly Type Type = type;
+		public readonly StorageClass StorageClass = storage_class;
+		public readonly Expression Source = source;
 
 		public override string ToString()
 		{
 			if (Source != null)
-				return $"VariableDeclaration({Identifier}, {Source})";
-			return $"VariableDeclaration({Identifier})";
+				return $"VariableDeclaration(\"{Identifier}\", {Type}, {StorageClass}, {Source})";
+			return $"VariableDeclaration(\"{Identifier}\", {Type}, {StorageClass})";
 		}
 	}
 	
-	public class FunctionDeclaration : Declaration {
-		public readonly Identifier Identifier;
-		public readonly List<Identifier> Parameters;
-		public readonly Block Body;
-		
-		public FunctionDeclaration(Identifier identifier, List<Identifier> parameters, Block body) {
-			Identifier = identifier;
-			Parameters = parameters;
-			Body = body;
-		}
-		
+	public class FunctionDeclaration(Identifier identifier, Type return_type, StorageClass storage_class, List<Identifier> parameters, Block body) : Declaration {
+		public readonly Identifier Identifier = identifier;
+		public readonly Type ReturnType = return_type;
+		public readonly StorageClass StorageClass = storage_class;
+		public readonly List<Identifier> Parameters = parameters;
+		public readonly Block Body = body;
+
 		public override string ToString() {
-			return $"FunctionDeclaration(\nIdentifier=\"{Identifier}\", {string.Join(", ", Parameters)}\nBody(\n{Body}\n)".Replace("\n", "\n ") + "\n)";
+			return $"FunctionDeclaration(\nIdentifier=\"{Identifier}\",\nReturnType={ReturnType},\nStorage={StorageClass},\n {string.Join(", ", Parameters)}\nBody(\n{Body}\n)".Replace("\n", "\n ") + "\n)";
 		}
 	}
 	

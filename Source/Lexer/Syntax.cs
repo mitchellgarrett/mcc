@@ -44,9 +44,9 @@ public static class Syntax {
 	public const string multi_line_comment_begin = "/*";
 	public const string multi_line_comment_end = "*/";
 	
-	public static readonly string[] keywords = new string[] { "void", "return", "int", "if", "else", "do", "while", "for", "break", "continue" };
+	public static readonly string[] keywords = [ "void", "return", "int", "if", "else", "do", "while", "for", "break", "continue", "static", "extern" ];
 	
-	public enum Keyword { Void, Return, Integer, If, Else, Do, While, For, Break, Continue };
+	public enum Keyword { Void, Return, Integer, If, Else, Do, While, For, Break, Continue, Static, Extern };
 	public enum UnaryOperator { Negation, Not, BitwiseComplement, Decrement };
 	public enum BinaryOperator { Addition, Subtraction, Multiplication, Division, Remainder, Assignment, LogicalAnd, LogicalOr, LogicalEqual, LogicalNotEqual, LogicalLess, LogicalGreater, LogicalLessEqual, LogicalGreaterEqual, ConditionalTrue, ConditionalFalse };
 	

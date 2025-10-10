@@ -15,7 +15,7 @@ all: $(TARGET)
 $(TARGET): $(SRC)
 	@dotnet build --verbosity detailed	
 
-# Runs the compiler then runs the generate executable
+# Runs the compiler then runs the generated executable
 .PHONY: run
 run:
 	@make exe
@@ -25,7 +25,7 @@ run:
 # Generates a reference assembly file using gcc
 .PHONY: ref_asm
 ref_asm:
-	@gcc -S -O -fno-asynchronous-unwind-tables -fcf-protection=none $(FILE)
+	@gcc -S -O -fno-asynchronous-unwind-tables -fcf-protection=none $(FILE) -o $(ASM_FILE)
 
 # Runs compiler to generate a .S file
 .PHONY: asm

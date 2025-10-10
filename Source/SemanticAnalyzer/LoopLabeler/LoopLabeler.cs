@@ -19,7 +19,12 @@ public static class LoopLabeler
 
 	static void LabelLoopsInProgram(ParseNode.Program program)
 	{
-		foreach (var function in program.FunctionDeclarations) LabelLoopsInFunctionDeclaration(function);
+		foreach (var declaration in program.Declarations) LabelLoopsInDeclaration(declaration);
+	}
+	
+	static void LabelLoopsInDeclaration(ParseNode.Declaration declaration)
+	{
+		if (declaration is ParseNode.FunctionDeclaration function_declaration) LabelLoopsInFunctionDeclaration(function_declaration);
 	}
 	
 	static void LabelLoopsInFunctionDeclaration(ParseNode.FunctionDeclaration function)

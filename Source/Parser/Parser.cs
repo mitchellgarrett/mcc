@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using FTG.Studios.MCC.Lexer;
@@ -16,15 +17,15 @@ public static partial class Parser {
 	}
 	
 	/// <summary>
-	/// Program ::= { FunctionDeclaration }
+	/// Program ::= { Declaration }
 	/// </summary>
 	/// <param name="tokens"></param>
 	/// <returns></returns>
 	static ParseNode.Program ParseProgram(LinkedList<Token> tokens)
 	{
-		List<ParseNode.FunctionDeclaration> functions = new List<ParseNode.FunctionDeclaration>();
-		while (tokens.Count > 0) functions.Add(ParseFunctionDeclaration(tokens));
-		return new ParseNode.Program(functions);
+		List<ParseNode.Declaration> declarations = [];
+		while (tokens.Count > 0) declarations.Add(ParseDeclaration(tokens));
+		return new ParseNode.Program(declarations);
 	}
 
 	/// <summary>
@@ -34,30 +35,29 @@ public static partial class Parser {
 	/// <returns></returns>
 	static ParseNode.Declaration ParseDeclaration(LinkedList<Token> tokens)
 	{
-		Token type = tokens.Dequeue();
-		Expect(type, TokenType.Keyword, Syntax.Keyword.Integer);
-
+		// Parse Type and StorageClass to be passed along
+		(ParseNode.Type type, ParseNode.StorageClass storage_class) = ParseTypeAndStorageClass(tokens);
+		
+		// Check to see if the identifier is followed by a '('
 		Token identifier = tokens.Dequeue();
 		Expect(identifier, TokenType.Identifier);
 
 		Token next_token = tokens.Peek();
-
 		tokens.AddFirst(identifier);
-		tokens.AddFirst(type);
-
-		if (Match(next_token, TokenType.OpenParenthesis)) return ParseFunctionDeclaration(tokens);
-		return ParseVariableDeclaration(tokens);
+		
+		// If the next token is an open parethensis, it is a function declaration
+		if (Match(next_token, TokenType.OpenParenthesis)) return ParseFunctionDeclaration(tokens, type, storage_class);
+		// Otherwise, it is a variable declaration
+		return ParseVariableDeclaration(tokens, type, storage_class);
 	}
 	
 	/// <summary>
-	/// Function ::= "int" Identifier "(" ParameterList ")" ( Block | ";" )
+	/// FunctionDeclaration ::= { Specifier }+ Identifier "(" ParameterList ")" ( Block | ";" )
 	/// </summary>
 	/// <param name="tokens"></param>
 	/// <returns></returns>
-	static ParseNode.FunctionDeclaration ParseFunctionDeclaration(LinkedList<Token> tokens)
+	static ParseNode.FunctionDeclaration ParseFunctionDeclaration(LinkedList<Token> tokens, ParseNode.Type return_type, ParseNode.StorageClass storage_class)
 	{
-		Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.Integer);
-
 		ParseNode.Identifier identifier = ParseIdentifier(tokens);
 
 		Expect(tokens.Dequeue(), TokenType.OpenParenthesis);
@@ -71,18 +71,16 @@ public static partial class Parser {
 		if (Match(tokens.Peek(), TokenType.Semicolon)) tokens.Dequeue();
 		else body = ParseBlock(tokens);
 
-		return new ParseNode.FunctionDeclaration(identifier, parameters, body);
+		return new ParseNode.FunctionDeclaration(identifier, return_type, storage_class, parameters, body);
 	}
 
 	/// <summary>
-	/// VariableDeclaration ::= "int" Identifier [ "=" Expression ] ";"
+	/// VariableDeclaration ::= { Specifier }+ Identifier [ "=" Expression ] ";"
 	/// </summary>
 	/// <param name="tokens"></param>
 	/// <returns></returns>
-	static ParseNode.VariableDeclaration ParseVariableDeclaration(LinkedList<Token> tokens)
+	static ParseNode.VariableDeclaration ParseVariableDeclaration(LinkedList<Token> tokens, ParseNode.Type type, ParseNode.StorageClass storage_class)
 	{
-		Expect(tokens.Dequeue(), TokenType.Keyword, Syntax.Keyword.Integer);
-
 		ParseNode.Identifier identifier = ParseIdentifier(tokens);
 
 		// Optional initialization
@@ -98,7 +96,60 @@ public static partial class Parser {
 
 		Expect(tokens.Dequeue(), TokenType.Semicolon);
 
-		return new ParseNode.VariableDeclaration(identifier, expression);
+		return new ParseNode.VariableDeclaration(identifier, type, storage_class, expression);
+	}
+
+	/// <summary>
+	/// Specifier ::= "int" | "static" | "extern"
+	/// </summary>
+	/// <param name="tokens"></param>
+	/// <returns></returns>
+	static List<Token> ParseSpecifierList(LinkedList<Token> tokens)
+	{
+		Syntax.Keyword[] valid_specifiers = [ Syntax.Keyword.Integer, Syntax.Keyword.Static, Syntax.Keyword.Extern ];
+		List<Token> specifiers = [];
+
+		while (Match(tokens.Peek(), TokenType.Keyword) && valid_specifiers.Contains((Syntax.Keyword)tokens.Peek().Value))
+		{
+			Token specifier = tokens.Dequeue();
+			specifiers.Add(specifier);
+		}
+
+		return specifiers;
+	}
+	
+	/// <summary>
+	/// Type ::= "int"
+	/// StorageClass ::= "static" | "extern"
+	/// </summary>
+	/// <param name="tokens"></param>
+	/// <returns></returns>
+	static (ParseNode.Type, ParseNode.StorageClass) ParseTypeAndStorageClass(LinkedList<Token> tokens)
+	{
+		List<Token> specifiers = ParseSpecifierList(tokens);
+
+		List<ParseNode.Type> types = [];
+		List<ParseNode.StorageClass> storage_classes = [];
+
+		foreach (var specifier in specifiers)
+		{
+			// Check if Type
+			if (Enum.GetNames<ParseNode.Type>().Contains(specifier.Value.ToString())) types.Add(Enum.Parse<ParseNode.Type>(specifier.Value.ToString()));
+			// Check if StorageClass
+			else if (Enum.GetNames<ParseNode.StorageClass>().Contains(specifier.Value.ToString())) storage_classes.Add(Enum.Parse<ParseNode.StorageClass>(specifier.Value.ToString()));
+			// Otherwise, throw error
+			else throw new ParserException($"Invalid specifier \"{specifier.Value}\".", specifier);
+		}
+
+		// There should only be one Type and at most one StorageClass
+		// TODO: Make the error message better
+		if (types.Count != 1) throw new ParserException($"Identifier given multiple types.", specifiers[0]);
+		if (storage_classes.Count > 1) throw new ParserException($"Identifier given multiple storage classes.", specifiers[0]);
+
+		ParseNode.Type type = types[0];
+		ParseNode.StorageClass storage_class = storage_classes.Count == 1 ? storage_classes[0] : ParseNode.StorageClass.None;
+
+		return (type, storage_class);
 	}
 
 	/// <summary>
@@ -109,7 +160,7 @@ public static partial class Parser {
 	static List<ParseNode.Identifier> ParseParameterList(LinkedList<Token> tokens)
 	{
 		// TODO: Make this return types too
-		List<ParseNode.Identifier> parameters = new List<ParseNode.Identifier>();
+		List<ParseNode.Identifier> parameters = [];
 
 		if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Void))
 		{
@@ -137,7 +188,11 @@ public static partial class Parser {
 	/// <returns></returns>
 	static ParseNode.BlockItem ParseBlockItem(LinkedList<Token> tokens)
 	{
-		if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Integer)) return ParseDeclaration(tokens);
+		// TODO: Make this better
+		// Check if the current token is a declaration specifier. If so, it is a function or variable declaration
+		Syntax.Keyword[] valid_specifiers = [ Syntax.Keyword.Integer, Syntax.Keyword.Static, Syntax.Keyword.Extern ];
+		if (Match(tokens.Peek(), TokenType.Keyword) && valid_specifiers.Contains((Syntax.Keyword)tokens.Peek().Value)) return ParseDeclaration(tokens);
+		// If not, it is a statement
 		return ParseStatement(tokens);
 	}
 	
@@ -279,9 +334,19 @@ public static partial class Parser {
 	static ParseNode.ForInitialization ParseForInitialization(LinkedList<Token> tokens)
 	{
 		// If first token is 'int' then this is a variable declaration
-		if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Integer)) return ParseVariableDeclaration(tokens);
+		if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Integer))
+		{
+			ParseNode.Declaration declaration = ParseDeclaration(tokens);
+			if (declaration is ParseNode.VariableDeclaration variable_declaration)
+			{
+				if (variable_declaration.StorageClass != ParseNode.StorageClass.None) throw new ParserException("For loop initialization cannot have storage class specifiers.", tokens.Peek());
+				return variable_declaration;
+			}
+			// TODO: Make this better
+			throw new ParserException("Function declaration given as for loop initialization.", tokens.Peek());
+		}
 		// Otherwise it is an expression
-		ParseNode.Expression expression = ParseExpression(tokens, 0);
+			ParseNode.Expression expression = ParseExpression(tokens, 0);
 		Expect(tokens.Dequeue(), TokenType.Semicolon);
 		return expression;
 	}
@@ -295,7 +360,7 @@ public static partial class Parser {
 	{
 		Expect(tokens.Dequeue(), TokenType.OpenBrace);
 
-		List<ParseNode.BlockItem> items = new List<ParseNode.BlockItem>();
+		List<ParseNode.BlockItem> items = [];
 		while (!Match(tokens.Peek(), TokenType.CloseBrace))
 		{
 			ParseNode.BlockItem item = ParseBlockItem(tokens);
@@ -447,25 +512,5 @@ public static partial class Parser {
 		Token token = tokens.Dequeue();
 		Expect(token, TokenType.Identifier);
 		return new ParseNode.Identifier((string)token.Value);
-	}
-	
-	static bool Match(Token token, TokenType expected_type) {
-		return token.Type == expected_type;
-	}
-	
-	static bool Match(Token token, TokenType expected_type, object expected_value) {
-		return token.Type == expected_type && token.Value.Equals(expected_value);
-	}
-	
-	static void Expect(Token token, TokenType expected_type) {
-		if (token.Type != expected_type) {
-			throw new ParserException($"Expected: {expected_type}, got: {token}", token);
-		}
-	}
-	
-	static void Expect(Token token, TokenType expected_type, object expected_value) {
-		if (token.Type != expected_type || !token.Value.Equals(expected_value)) {
-			throw new ParserException($"Expected: {expected_type}, {expected_value}, got: {token}", token);
-		}
 	}
 }

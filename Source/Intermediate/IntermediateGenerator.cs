@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using FTG.Studios.MCC.Lexer;
 using FTG.Studios.MCC.Parser;
+using FTG.Studios.MCC.SemanticAnalysis;
 
 namespace FTG.Studios.MCC.Intermediate;
 
@@ -18,48 +19,75 @@ public static class IntermediateGenerator {
 		get { return new IntermediateNode.Label($"L{next_temporary_label_index++}"); }
 	}
 	
-	public static IntermediateTree Generate(ParseTree tree) {
+	public static IntermediateTree Generate(ParseTree tree, SymbolTable symbol_table) {
 		next_temporary_variable_index = 0;
 		next_temporary_label_index = 0;
-		IntermediateNode.Program program = GenerateProgram(tree.Program);
+		IntermediateNode.Program program = GenerateProgram(tree.Program, symbol_table);		
 		return new IntermediateTree(program);
 	}
 	
-	static IntermediateNode.Program GenerateProgram(ParseNode.Program program) {
-		List<IntermediateNode.Function> functions = new List<IntermediateNode.Function>();
-		foreach (var function in program.FunctionDeclarations)
+	static IntermediateNode.Program GenerateProgram(ParseNode.Program program, SymbolTable symbol_table)
+	{
+		List<IntermediateNode.TopLevel> declarations = [];
+		foreach (var function in program.Declarations)
 		{
-			IntermediateNode.Function intermediate_function = GenerateFunctionDeclaration(function);
-			if (intermediate_function != null) functions.Add(intermediate_function);
+			if (function is ParseNode.FunctionDeclaration function_declaration)
+			{
+				IntermediateNode.Function intermediate_function = GenerateFunctionDeclaration(function_declaration, symbol_table);
+				if (intermediate_function != null) declarations.Add(intermediate_function);
+			}
 		}
-		return new IntermediateNode.Program(functions);
+		
+		declarations.AddRange(GenerateStaticVariablesFromSymbolTable(symbol_table));
+		
+		return new IntermediateNode.Program(declarations);
 	}
 	
-	static IntermediateNode.Function GenerateFunctionDeclaration(ParseNode.FunctionDeclaration function) {
+	static List<IntermediateNode.StaticVariable> GenerateStaticVariablesFromSymbolTable(SymbolTable symbol_table)
+	{
+		List<IntermediateNode.StaticVariable> static_variables = [];
+		foreach ((string identifier, SymbolTableEntry entry) in symbol_table)
+		{
+			if (entry.Attributes is IdentifierAttributes.Static static_attributes)
+			{
+				if (static_attributes.InitialValue is InitialValue.Constant constant)
+					static_variables.Add(new IntermediateNode.StaticVariable(identifier, static_attributes.IsGlobal, constant.Value));
+				else if (static_attributes.InitialValue is InitialValue.Tentative)
+					static_variables.Add(new IntermediateNode.StaticVariable(identifier, static_attributes.IsGlobal, 0));
+				// Ignore variables with no initializer
+			}
+		}
+
+		return static_variables;
+	}
+	
+	static IntermediateNode.Function GenerateFunctionDeclaration(ParseNode.FunctionDeclaration function, SymbolTable symbol_table)
+	{
 		// If the function has no body, there is nothing to generate
 		if (function.Body == null) return null;
-		
+
 		string identifier = function.Identifier.Value;
-		
+
 		// Convert list of ParseNode.Identifiers to array of strings
 		IntermediateNode.Variable[] parameters = function.Parameters.Select(p => new IntermediateNode.Variable(p.Value)).ToArray();
-		
+
 		// Generate instructions for the body of the function
-		List<IntermediateNode.Instruction> instructions = new List<IntermediateNode.Instruction>();
+		List<IntermediateNode.Instruction> instructions = [];
 		GenerateBlock(ref instructions, function.Body);
 
 		// Add Return(0) to the end of every function in case there is no explicit return given
 		GenerateReturnStatement(ref instructions, new ParseNode.Return(new ParseNode.Constant(0)));
+
+		// Pull the function's globality from the symbol table since it might have been definied with a different globality earlier
+		if (!symbol_table.TryGetSymbol(function.Identifier.Value, out SymbolTableEntry entry)) throw new IntermediateGeneratorException($"Function \"{function.Identifier.Value}\" does not exist in symbol table.", null, null, null);
+		bool is_global = (entry.Attributes as IdentifierAttributes.Function).IsGlobal;
 		
-		return new IntermediateNode.Function(identifier, parameters, instructions.ToArray());
+		return new IntermediateNode.Function(identifier, is_global, parameters, instructions.ToArray());
 	}
 
 	static void GenerateBlock(ref List<IntermediateNode.Instruction> instructions, ParseNode.Block block)
 	{
-		foreach (ParseNode.BlockItem item in block.Items)
-		{
-			GenerateBlockItem(ref instructions, item);
-		}
+		foreach (ParseNode.BlockItem item in block.Items) GenerateBlockItem(ref instructions, item);
 	}
 
 	static void GenerateBlockItem(ref List<IntermediateNode.Instruction> instructions, ParseNode.BlockItem item)
@@ -70,7 +98,10 @@ public static class IntermediateGenerator {
 
 	static void GenerateVariableDeclaration(ref List<IntermediateNode.Instruction> instructions, ParseNode.VariableDeclaration declaration)
 	{
-		// If declaration initializer, if it exists
+		// Do not generate initializers for static variables
+		if (declaration.StorageClass == ParseNode.StorageClass.Static) return;
+		
+		// Generate declaration initializer, if it exists
 		IntermediateNode.Operand source = null;
 		if (declaration.Source != null) source = GenerateExpression(ref instructions, declaration.Source);
 		
@@ -139,7 +170,7 @@ public static class IntermediateGenerator {
 	static void GenerateReturnStatement(ref List<IntermediateNode.Instruction> instructions, ParseNode.Return statement) {
 		IntermediateNode.Operand value = GenerateExpression(ref instructions, statement.Expression);
 		instructions.Add(new IntermediateNode.Comment($"return {value.ToCommentString()}"));
-		instructions.Add(new IntermediateNode.ReturnInstruction(value));
+		instructions.Add(new IntermediateNode.Return(value));
 	}
 
 	static void GenerateIfStatement(ref List<IntermediateNode.Instruction> instructions, ParseNode.If statement)
@@ -213,7 +244,7 @@ public static class IntermediateGenerator {
 		if (statement.Initialization is ParseNode.VariableDeclaration init_declaration) GenerateVariableDeclaration(ref instructions, init_declaration);
 		else if (statement.Initialization is ParseNode.Expression init_expression) GenerateExpression(ref instructions, init_expression);
 		else if (statement.Initialization is null) { }
-		else throw new SemanticAnalzyerException("", "");
+		else throw new IntermediateGeneratorException("", null, null, null);
 
 		instructions.Add(new IntermediateNode.Label($"Start{statement.InternalLabel}"));
 

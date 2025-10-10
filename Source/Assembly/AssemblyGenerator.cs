@@ -3,35 +3,45 @@ using System.Collections.Generic;
 using System.Linq;
 using FTG.Studios.MCC.Intermediate;
 using FTG.Studios.MCC.Lexer;
+using FTG.Studios.MCC.SemanticAnalysis;
 
 namespace FTG.Studios.MCC.Assembly;
 	
 public static class AssemblyGenerator {
 	
-	public static AssemblyTree Generate(IntermediateTree tree) {
-		AssemblyNode.Program program = GenerateProgram(tree.Program);
+	public static AssemblyTree Generate(IntermediateTree tree, SymbolTable symbol_table) {
+		AssemblyNode.Program program = GenerateProgram(tree.Program, symbol_table);
 		return new AssemblyTree(program);
 	}
 	
-	static AssemblyNode.Program GenerateProgram(IntermediateNode.Program program) {
-		List<AssemblyNode.Function> functions = new List<AssemblyNode.Function>();
-		foreach (var function in program.Functions) functions.Add(GenerateFunction(function));
-		return new AssemblyNode.Program(functions);
+	static AssemblyNode.Program GenerateProgram(IntermediateNode.Program program, SymbolTable symbol_table) {
+		List<AssemblyNode.TopLevel> definitions = [];
+		foreach (var definition in program.TopLevelDefinitions) definitions.Add(GenerateTopLevelDefinition(definition, symbol_table));
+		return new AssemblyNode.Program(definitions);
+	}
+
+	static AssemblyNode.TopLevel GenerateTopLevelDefinition(IntermediateNode.TopLevel definition, SymbolTable symbol_table)
+	{
+		if (definition is IntermediateNode.Function function) return GenerateFunction(function, symbol_table);
+		if (definition is IntermediateNode.StaticVariable static_variable) return GenerateStaticVariable(static_variable);
+		System.Environment.Exit(1);
+		return null;
 	}
 	
-	static AssemblyNode.Function GenerateFunction(IntermediateNode.Function function) {
+	static AssemblyNode.Function GenerateFunction(IntermediateNode.Function function, SymbolTable symbol_table)
+	{
 		string identifier = function.Identifier;
 
-		AssemblyNode.Operand[] parameters = function.Parameters.Select(p => new AssemblyNode.Variable(p.Identifier)).ToArray();
-		
-		List<AssemblyNode.Instruction> instructions = new();
-		
-		// TODO: This may or may not be necessary
-		instructions.Add(new AssemblyNode.Comment("align stack"));
-		instructions.Add(new AssemblyNode.AllocateStack(8));
-		
-		instructions.Add(new AssemblyNode.Comment("copy arguments to stack"));
-		
+		AssemblyNode.Operand[] parameters = function.Parameters.Select(p => new AssemblyNode.PseudoRegister(p.Identifier)).ToArray();
+
+		List<AssemblyNode.Instruction> instructions =
+		[
+			// TODO: This may or may not be necessary
+			new AssemblyNode.Comment("align stack"),
+		new AssemblyNode.AllocateStack(8),
+		new AssemblyNode.Comment("copy arguments to stack"),
+	];
+
 		// The first 6 parameters are stored in registers
 		for (int i = 0; i < 6 && i < function.Parameters.Length; i++)
 		{
@@ -46,7 +56,6 @@ public static class AssemblyGenerator {
 		// The rest of the parameters are stored in the stack in reverse order
 		for (int i = function.Parameters.Length - 1; i >= 6; i--)
 		{
-			Console.WriteLine(i);
 			instructions.Add(
 				new AssemblyNode.MOV(
 					new AssemblyNode.StackAccess(16 + 8 * (i - 6)),
@@ -54,31 +63,36 @@ public static class AssemblyGenerator {
 				)
 			);
 		}
-		
-		foreach (var instruction in function.Body) GenerateInstruction(ref instructions, instruction);
-		
-		return new AssemblyNode.Function(identifier, parameters.ToArray(), instructions);
+
+		foreach (var instruction in function.Body) GenerateInstruction(ref instructions, instruction, symbol_table);
+
+		return new AssemblyNode.Function(identifier, function.IsGlobal, parameters.ToArray(), instructions);
 	}
 
-	static void GenerateInstruction(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.Instruction instruction)
+	static AssemblyNode.StaticVariable GenerateStaticVariable(IntermediateNode.StaticVariable static_variable)
 	{
-		if (instruction is IntermediateNode.Comment) GenerateComment(ref instructions, instruction as IntermediateNode.Comment);
-		if (instruction is IntermediateNode.ReturnInstruction) GenerateReturnInstruction(ref instructions, instruction as IntermediateNode.ReturnInstruction);
-		if (instruction is IntermediateNode.UnaryInstruction) GenerateUnaryInstruction(ref instructions, instruction as IntermediateNode.UnaryInstruction);
-		if (instruction is IntermediateNode.BinaryInstruction) GenerateBinaryInstruction(ref instructions, instruction as IntermediateNode.BinaryInstruction);
-		if (instruction is IntermediateNode.Jump) GenerateJumpInstruction(ref instructions, instruction as IntermediateNode.Jump);
-		if (instruction is IntermediateNode.JumpIfZero) GenerateJumpIfZeroInstruction(ref instructions, instruction as IntermediateNode.JumpIfZero);
-		if (instruction is IntermediateNode.JumpIfNotZero) GenerateJumpIfNotZeroInstruction(ref instructions, instruction as IntermediateNode.JumpIfNotZero);
-		if (instruction is IntermediateNode.Copy) GenerateCopyInstruction(ref instructions, instruction as IntermediateNode.Copy);
-		if (instruction is IntermediateNode.Label) GenerateLabel(ref instructions, instruction as IntermediateNode.Label);
-		if (instruction is IntermediateNode.FunctionCall function_call) GenerateFunctionCall(ref instructions, function_call);
+		return new AssemblyNode.StaticVariable(static_variable.Identifier, static_variable.IsGlobal, static_variable.InitialValue);
+	}
+
+	static void GenerateInstruction(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.Instruction instruction, SymbolTable symbol_table)
+	{
+		if (instruction is IntermediateNode.Comment comment) GenerateComment(ref instructions, comment);
+		if (instruction is IntermediateNode.Return @return) GenerateReturnInstruction(ref instructions, @return);
+		if (instruction is IntermediateNode.UnaryInstruction unary) GenerateUnaryInstruction(ref instructions, unary);
+		if (instruction is IntermediateNode.BinaryInstruction binary) GenerateBinaryInstruction(ref instructions, binary);
+		if (instruction is IntermediateNode.Jump jump) GenerateJumpInstruction(ref instructions, jump);
+		if (instruction is IntermediateNode.JumpIfZero jump_if_zero) GenerateJumpIfZeroInstruction(ref instructions, jump_if_zero);
+		if (instruction is IntermediateNode.JumpIfNotZero jump_if_not_zero) GenerateJumpIfNotZeroInstruction(ref instructions, jump_if_not_zero);
+		if (instruction is IntermediateNode.Copy copy) GenerateCopyInstruction(ref instructions, copy);
+		if (instruction is IntermediateNode.Label label) GenerateLabel(ref instructions, label);
+		if (instruction is IntermediateNode.FunctionCall function_call) GenerateFunctionCall(ref instructions, function_call, symbol_table);
 	}
 	
 	static void GenerateComment(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.Comment comment) {
 		instructions.Add(new AssemblyNode.Comment(comment.Data));
 	}
 	
-	static void GenerateReturnInstruction(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.ReturnInstruction instruction) {
+	static void GenerateReturnInstruction(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.Return instruction) {
 		AssemblyNode.Operand source = GenerateOperand(instruction.Value);
 		AssemblyNode.Operand destination = RegisterType.AX.ToOperand();
 		
@@ -205,7 +219,7 @@ public static class AssemblyGenerator {
 		instructions.Add(new AssemblyNode.Label(instruction.Identifier));
 	}
 
-	static void GenerateFunctionCall(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.FunctionCall function_call)
+	static void GenerateFunctionCall(ref List<AssemblyNode.Instruction> instructions, IntermediateNode.FunctionCall function_call, SymbolTable symbol_table)
 	{
 		// Ensure stack is 16-byte aligned
 		// FIXME: This doesn't work when the stack is already misaligned
@@ -243,7 +257,7 @@ public static class AssemblyGenerator {
 			}
 		}
 
-		instructions.Add(new AssemblyNode.Call(function_call.Identifier));
+		instructions.Add(new AssemblyNode.Call(function_call.Identifier, symbol_table.ContainsSymbol(function_call.Identifier)));
 
 		// Restore stack pointer
 		if (stack_padding != 0) instructions.Add(new AssemblyNode.DeallocateStack(stack_padding));
@@ -268,6 +282,6 @@ public static class AssemblyGenerator {
 	}
 	
 	static AssemblyNode.Operand GenerateVariable(IntermediateNode.Variable operand) {
-		return new AssemblyNode.Variable(operand.Identifier);
+		return new AssemblyNode.PseudoRegister(operand.Identifier);
 	}
 }

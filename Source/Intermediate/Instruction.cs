@@ -7,14 +7,9 @@ public static partial class IntermediateNode
 
 	public abstract class Instruction : Node { }
 
-	public class ReturnInstruction : Instruction
+	public class Return(Operand value) : Instruction
 	{
-		public readonly Operand Value;
-
-		public ReturnInstruction(Operand value)
-		{
-			Value = value;
-		}
+		public readonly Operand Value = value;
 
 		public override string ToString()
 		{
@@ -22,16 +17,10 @@ public static partial class IntermediateNode
 		}
 	}
 
-	public class Copy : Instruction
+	public class Copy(Operand source, Operand destination) : Instruction
 	{
-		public readonly Operand Source;
-		public readonly Operand Destination;
-
-		public Copy(Operand source, Operand destination)
-		{
-			Source = source;
-			Destination = destination;
-		}
+		public readonly Operand Source = source;
+		public readonly Operand Destination = destination;
 
 		public override string ToString()
 		{
@@ -39,14 +28,9 @@ public static partial class IntermediateNode
 		}
 	}
 
-	public class Jump : Instruction
+	public class Jump(string target) : Instruction
 	{
-		public readonly string Target;
-
-		public Jump(string target)
-		{
-			Target = target;
-		}
+		public readonly string Target = target;
 
 		public override string ToString()
 		{
@@ -54,16 +38,10 @@ public static partial class IntermediateNode
 		}
 	}
 
-	public class JumpIfZero : Instruction
+	public class JumpIfZero(string target, Operand condition) : Instruction
 	{
-		public readonly string Target;
-		public readonly Operand Condition;
-
-		public JumpIfZero(string target, Operand condition)
-		{
-			Target = target;
-			Condition = condition;
-		}
+		public readonly string Target = target;
+		public readonly Operand Condition = condition;
 
 		public override string ToString()
 		{
@@ -71,16 +49,10 @@ public static partial class IntermediateNode
 		}
 	}
 
-	public class JumpIfNotZero : Instruction
+	public class JumpIfNotZero(string target, Operand condition) : Instruction
 	{
-		public readonly string Target;
-		public readonly Operand Condition;
-
-		public JumpIfNotZero(string target, Operand condition)
-		{
-			Target = target;
-			Condition = condition;
-		}
+		public readonly string Target = target;
+		public readonly Operand Condition = condition;
 
 		public override string ToString()
 		{
@@ -88,14 +60,9 @@ public static partial class IntermediateNode
 		}
 	}
 
-	public class Label : Instruction
+	public class Label(string identifier) : Instruction
 	{
-		public readonly string Identifier;
-
-		public Label(string identifier)
-		{
-			Identifier = identifier;
-		}
+		public readonly string Identifier = identifier;
 
 		public override string ToString()
 		{
@@ -103,18 +70,11 @@ public static partial class IntermediateNode
 		}
 	}
 
-	public class UnaryInstruction : Instruction
+	public class UnaryInstruction(Syntax.UnaryOperator @operator, Operand source, Operand destination) : Instruction
 	{
-		public readonly Syntax.UnaryOperator Operator;
-		public readonly Operand Source;
-		public readonly Operand Destination;
-
-		public UnaryInstruction(Syntax.UnaryOperator @operator, Operand source, Operand destination)
-		{
-			Operator = @operator;
-			Source = source;
-			Destination = destination;
-		}
+		public readonly Syntax.UnaryOperator Operator = @operator;
+		public readonly Operand Source = source;
+		public readonly Operand Destination = destination;
 
 		public override string ToString()
 		{
@@ -122,20 +82,12 @@ public static partial class IntermediateNode
 		}
 	}
 
-	public class BinaryInstruction : Instruction
+	public class BinaryInstruction(Syntax.BinaryOperator @operator, Operand left_operand, Operand right_operand, Operand destination) : Instruction
 	{
-		public readonly Syntax.BinaryOperator Operator;
-		public readonly Operand LeftOperand;
-		public readonly Operand RightOperand;
-		public readonly Operand Destination;
-
-		public BinaryInstruction(Syntax.BinaryOperator @operator, Operand left_operand, Operand right_operand, Operand destination)
-		{
-			Operator = @operator;
-			LeftOperand = left_operand;
-			RightOperand = right_operand;
-			Destination = destination;
-		}
+		public readonly Syntax.BinaryOperator Operator = @operator;
+		public readonly Operand LeftOperand = left_operand;
+		public readonly Operand RightOperand = right_operand;
+		public readonly Operand Destination = destination;
 
 		public override string ToString()
 		{
@@ -143,19 +95,12 @@ public static partial class IntermediateNode
 		}
 	}
 
-	public class FunctionCall : Instruction
+	public class FunctionCall(string identifier, Operand[] arguments, Operand destination) : Instruction
 	{
-		public readonly string Identifier;
-		public readonly Operand[] Arguments;
-		public readonly Operand Destination;
+		public readonly string Identifier = identifier;
+		public readonly Operand[] Arguments = arguments;
+		public readonly Operand Destination = destination;
 
-		public FunctionCall(string identifier, Operand[] arguments, Operand destination)
-		{
-			Identifier = identifier;
-			Arguments = arguments;
-			Destination = destination;
-		}
-		
 		public override string ToString()
 		{
 			return $"FunctionCall(Identifier=\"{Identifier}\", Arguments({string.Join<Operand>(", ", Arguments)}), Destination({Destination}))";
