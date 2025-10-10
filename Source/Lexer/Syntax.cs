@@ -43,8 +43,11 @@ public static class Syntax {
 	public const string single_line_comment = "//";
 	public const string multi_line_comment_begin = "/*";
 	public const string multi_line_comment_end = "*/";
+
+	// Preprocessor
+	public const char preprocessor_directive = '#';
 	
-	public static readonly string[] keywords = [ "void", "return", "int", "if", "else", "do", "while", "for", "break", "continue", "static", "extern" ];
+	public static readonly string[] keywords = ["void", "return", "int", "if", "else", "do", "while", "for", "break", "continue", "static", "extern"];
 	
 	public enum Keyword { Void, Return, Integer, If, Else, Do, While, For, Break, Continue, Static, Extern };
 	public enum UnaryOperator { Negation, Not, BitwiseComplement, Decrement };

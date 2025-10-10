@@ -29,6 +29,20 @@ public static class Lexer
 				continue;
 			}
 
+			// Check for preprocessor directive and skip rest of line
+			if (c == Syntax.preprocessor_directive)
+			{
+				index++;
+				while (index < source.Length - 1 && (c = source[++index]) != '\n')
+				{
+					lexeme += c;
+				}
+
+				current_line++;
+				lexeme = string.Empty;
+				continue;
+			}
+
 			char next = index + 1 < source.Length ? source[index + 1] : '\0';
 			
 			// Check for single line comment and skip rest of line

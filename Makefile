@@ -54,4 +54,4 @@ CHAPTER ?= 1
 STAGE ?= run
 .PHONY: test
 test:
-	./Modules/writing-a-c-compiler-tests/test_compiler mcc --chapter $(CHAPTER) --stage $(STAGE)
+	./Modules/writing-a-c-compiler-tests/test_compiler mcc --chapter $(CHAPTER) --stage $(STAGE) --verbose --keep-asm-on-failure
