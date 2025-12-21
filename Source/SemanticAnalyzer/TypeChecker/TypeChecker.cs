@@ -49,11 +49,11 @@ public static class TypeChecker
 		int parameter_count = declaration.Parameters.Count;
 		bool is_defined = is_already_defined || declaration.Body != null;
 		IdentifierAttributes.Function attributes = new(is_defined, is_global);
-		symbol_table.AddFunction(declaration.Identifier.Value, ParseNode.Type.Integer, parameter_count, attributes);
+		symbol_table.AddFunction(declaration.Identifier.Value, ParseNode.PrimitiveType.Integer, parameter_count, attributes);
 
 		if (declaration.Body == null) return;
 		foreach (var parameter in declaration.Parameters)
-			symbol_table.AddVariable(parameter.Value, ParseNode.Type.Integer, new IdentifierAttributes.Local());
+			symbol_table.AddVariable(parameter.Value, ParseNode.PrimitiveType.Integer, new IdentifierAttributes.Local());
 
 		// TODO: Do I need to copy the symbol table for each scope?
 		CheckTypesInBlock(symbol_table, declaration.Body);
@@ -63,7 +63,7 @@ public static class TypeChecker
 	{
 		// Check if the initialization expression is a constant
 		InitialValue initial_value;
-		if (declaration.Source is ParseNode.Constant constant)
+		if (declaration.Source is ParseNode.IntegerConstant constant)
 		{
 			initial_value = new InitialValue.Constant(constant.Value);
 		}
@@ -98,7 +98,7 @@ public static class TypeChecker
 		}
 
 		IdentifierAttributes attributes = new IdentifierAttributes.Static(initial_value, is_global);
-		symbol_table.AddVariable(declaration.Identifier.Value, ParseNode.Type.Integer, attributes);
+		symbol_table.AddVariable(declaration.Identifier.Value, ParseNode.PrimitiveType.Integer, attributes);
 	}
 
 	static void CheckTypesInBlockScopeVariableDeclaration(SymbolTable symbol_table, ParseNode.VariableDeclaration declaration)
@@ -112,17 +112,17 @@ public static class TypeChecker
 			}
 			else
 			{
-				symbol_table.AddVariable(declaration.Identifier.Value, ParseNode.Type.Integer, new IdentifierAttributes.Static(new InitialValue.None(), true));
+				symbol_table.AddVariable(declaration.Identifier.Value, ParseNode.PrimitiveType.Integer, new IdentifierAttributes.Static(new InitialValue.None(), true));
 			}
 		}
 		else if (declaration.StorageClass == ParseNode.StorageClass.Static)
 		{
 			InitialValue initial_value;
-			if (declaration.Source is ParseNode.Constant constant) initial_value = new InitialValue.Constant(constant.Value);
+			if (declaration.Source is ParseNode.IntegerConstant constant) initial_value = new InitialValue.Constant(constant.Value);
 			else if (declaration.Source == null) initial_value = new InitialValue.Constant(0);
 			else throw new SemanticAnalzyerException($"Static variable \"{declaration.Identifier.Value}\" cannot have a non-constant initializer.", declaration.Identifier.Value);
 
-			symbol_table.AddVariable(declaration.Identifier.Value, ParseNode.Type.Integer, new IdentifierAttributes.Static(initial_value, false));
+			symbol_table.AddVariable(declaration.Identifier.Value, ParseNode.PrimitiveType.Integer, new IdentifierAttributes.Static(initial_value, false));
 		}
 		else
 		{
@@ -132,7 +132,7 @@ public static class TypeChecker
 				if (old_entry.Attributes is IdentifierAttributes.Static) throw new SemanticAnalzyerException($"Static variable \"{declaration.Identifier.Value}\" redefined as a local variable.", declaration.Identifier.Value);
 			}
 			
-			symbol_table.AddVariable(declaration.Identifier.Value, ParseNode.Type.Integer, new IdentifierAttributes.Local());
+			symbol_table.AddVariable(declaration.Identifier.Value, ParseNode.PrimitiveType.Integer, new IdentifierAttributes.Local());
 			if (declaration.Source != null) CheckTypesInExpression(symbol_table, declaration.Source);
 		}
 	}
@@ -218,7 +218,7 @@ public static class TypeChecker
 		{
 			if (!symbol_table.TryGetSymbol(variable.Identifier.Value, out SymbolTableEntry entry))
 				throw new SemanticAnalzyerException($"Variable \"{variable.Identifier.Value}\" does not exist.", variable.Identifier.Value);
-			if (entry.SymbolClass != SymbolTable.SymbolClass.Variable || entry.ReturnType != ParseNode.Type.Integer)
+			if (entry.SymbolClass != SymbolTable.SymbolClass.Variable || entry.ReturnType != ParseNode.PrimitiveType.Integer)
 				throw new SemanticAnalzyerException($"Variable \"{variable.Identifier.Value}\" is the wrong type.", variable.Identifier.Value);
 			
 			return;
@@ -230,7 +230,7 @@ public static class TypeChecker
 				throw new SemanticAnalzyerException($"Function \"{function_call.Identifier.Value}\" does not exist.", function_call.Identifier.Value);
 
 			if (entry.SymbolClass != SymbolTable.SymbolClass.Function) throw new SemanticAnalzyerException($"Variable \"{function_call.Identifier.Value}\" is being used like a function.", function_call.Identifier.Value);
-			if (entry.ReturnType != ParseNode.Type.Integer) throw new SemanticAnalzyerException($"Function \"{function_call.Identifier.Value}\" has the wrong return type.", function_call.Identifier.Value);
+			if (entry.ReturnType != ParseNode.PrimitiveType.Integer) throw new SemanticAnalzyerException($"Function \"{function_call.Identifier.Value}\" has the wrong return type.", function_call.Identifier.Value);
 
 			// TODO: Eventually this will actually check that the arguments match
 			if (entry.ParamaterCount != function_call.Arguments.Count) throw new SemanticAnalzyerException($"Function \"{function_call.Identifier.Value}\" expects {entry.ParamaterCount} arguments, got {function_call.Arguments.Count}.", function_call.Identifier.Value);
@@ -269,7 +269,7 @@ public static class TypeChecker
 			return;
 		}
 		
-		if (expression is ParseNode.Constant) return;
+		if (expression is ParseNode.IntegerConstant) return;
 		
 		throw new SemanticAnalzyerException($"Unhandled expression type \"{expression}\"", expression.ToString());
 	}

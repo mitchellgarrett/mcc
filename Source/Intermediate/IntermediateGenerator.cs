@@ -76,7 +76,7 @@ public static class IntermediateGenerator {
 		GenerateBlock(ref instructions, function.Body);
 
 		// Add Return(0) to the end of every function in case there is no explicit return given
-		GenerateReturnStatement(ref instructions, new ParseNode.Return(new ParseNode.Constant(0)));
+		GenerateReturnStatement(ref instructions, new ParseNode.Return(new ParseNode.IntegerConstant(0)));
 
 		// Pull the function's globality from the symbol table since it might have been definied with a different globality earlier
 		if (!symbol_table.TryGetSymbol(function.Identifier.Value, out SymbolTableEntry entry)) throw new IntermediateGeneratorException($"Function \"{function.Identifier.Value}\" does not exist in symbol table.", null, null, null);
@@ -278,10 +278,10 @@ public static class IntermediateGenerator {
 	static IntermediateNode.Operand GenerateFactor(ref List<IntermediateNode.Instruction> instructions, ParseNode.Factor factor)
 	{
 		if (factor is ParseNode.UnaryExpression unaryExpression) return GenerateUnaryExpression(ref instructions, unaryExpression);
-		if (factor is ParseNode.Constant constant) return new IntermediateNode.Constant(constant.Value);
+		if (factor is ParseNode.IntegerConstant constant) return new IntermediateNode.Constant(constant.Value);
 		if (factor is ParseNode.Variable variable) return new IntermediateNode.Variable(variable.Identifier.Value);
 		
-		throw new IntermediateGeneratorException("GenerateFactor", factor.GetType(), factor, typeof(ParseNode.UnaryExpression), typeof(ParseNode.Constant), typeof(ParseNode.Variable));
+		throw new IntermediateGeneratorException("GenerateFactor", factor.GetType(), factor, typeof(ParseNode.UnaryExpression), typeof(ParseNode.IntegerConstant), typeof(ParseNode.Variable));
 	}
 	
 	static IntermediateNode.Operand GenerateUnaryExpression(ref List<IntermediateNode.Instruction> instructions, ParseNode.UnaryExpression expression)

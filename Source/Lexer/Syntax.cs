@@ -38,6 +38,7 @@ public static class Syntax {
 	
 	public const string identifier = @"[a-zA-Z]\w*\b";
 	public const string integer_literal = @"^[0-9]+\b$";
+	public const string long_literal = @"^[0-9]+[lL]\b$";
 
 	// Comments
 	public const string single_line_comment = "//";
@@ -47,9 +48,9 @@ public static class Syntax {
 	// Preprocessor
 	public const char preprocessor_directive = '#';
 	
-	public static readonly string[] keywords = ["void", "return", "int", "if", "else", "do", "while", "for", "break", "continue", "static", "extern"];
+	public static readonly string[] keywords = ["void", "return", "int", "long", "if", "else", "do", "while", "for", "break", "continue", "static", "extern"];
 	
-	public enum Keyword { Void, Return, Integer, If, Else, Do, While, For, Break, Continue, Static, Extern };
+	public enum Keyword { Void, Return, Integer, Long, If, Else, Do, While, For, Break, Continue, Static, Extern };
 	public enum UnaryOperator { Negation, Not, BitwiseComplement, Decrement };
 	public enum BinaryOperator { Addition, Subtraction, Multiplication, Division, Remainder, Assignment, LogicalAnd, LogicalOr, LogicalEqual, LogicalNotEqual, LogicalLess, LogicalGreater, LogicalLessEqual, LogicalGreaterEqual, ConditionalTrue, ConditionalFalse };
 	

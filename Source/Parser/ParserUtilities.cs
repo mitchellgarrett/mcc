@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using FTG.Studios.MCC.Lexer;
 
 namespace FTG.Studios.MCC.Parser;
@@ -27,14 +28,18 @@ public static partial class Parser
 	}
 	
 	static void Expect(Token token, TokenType expected_type) {
-		if (token.Type != expected_type) {
+		if (token.Type != expected_type)
 			throw new ParserException($"Expected: {expected_type}, got: {token}", token);
-		}
 	}
 	
 	static void Expect(Token token, TokenType expected_type, object expected_value) {
-		if (token.Type != expected_type || !token.Value.Equals(expected_value)) {
+		if (token.Type != expected_type || !token.Value.Equals(expected_value))
 			throw new ParserException($"Expected: {expected_type}, {expected_value}, got: {token}", token);
-		}
+	}
+	
+	static void Expect(Token token, IEnumerable<TokenType> expected_types)
+	{
+		if (!expected_types.Contains(token.Type))
+		throw new ParserException($"Expected: {string.Join(", ", expected_types)}, got: {token}", token);
 	}
 }

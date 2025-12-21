@@ -32,10 +32,10 @@ public abstract class InitialValue
 	}
 }
 
-public struct SymbolTableEntry(SymbolTable.SymbolClass symbol_class, ParseNode.Type return_type, int parameter_count, IdentifierAttributes attributes)
+public struct SymbolTableEntry(SymbolTable.SymbolClass symbol_class, ParseNode.PrimitiveType return_type, int parameter_count, IdentifierAttributes attributes)
 {
 	public SymbolTable.SymbolClass SymbolClass = symbol_class;
-	public ParseNode.Type ReturnType = return_type;
+	public ParseNode.PrimitiveType ReturnType = return_type;
 	public int ParamaterCount = parameter_count;
 	public IdentifierAttributes Attributes = attributes;
 }
@@ -46,12 +46,12 @@ public class SymbolTable : IEnumerable<(string, SymbolTableEntry)>
 
 	readonly Dictionary<string, SymbolTableEntry> symbols = [];
 
-	public void AddVariable(string identifier, ParseNode.Type type, IdentifierAttributes attributes)
+	public void AddVariable(string identifier, ParseNode.PrimitiveType type, IdentifierAttributes attributes)
 	{
 		symbols[identifier] = new SymbolTableEntry(SymbolClass.Variable, type, 0, attributes);
 	}
 
-	public void AddFunction(string identifier, ParseNode.Type type, int parameter_count, IdentifierAttributes attributes)
+	public void AddFunction(string identifier, ParseNode.PrimitiveType type, int parameter_count, IdentifierAttributes attributes)
 	{
 		symbols[identifier] = new SymbolTableEntry(SymbolClass.Function, type, parameter_count, attributes);
 	}

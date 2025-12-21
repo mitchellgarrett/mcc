@@ -13,7 +13,7 @@ EXE_FILE = $(basename $(FILE))
 all: $(TARGET)
 
 $(TARGET): $(SRC)
-	@dotnet build --verbosity detailed	
+	@dotnet build --verbosity detailed
 
 # Runs the compiler then runs the generated executable
 .PHONY: run
