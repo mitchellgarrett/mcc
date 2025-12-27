@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Numerics;
 using FTG.Studios.MCC.Lexer;
 
 namespace FTG.Studios.MCC.Parser;
@@ -26,34 +27,35 @@ public static class ParseNode {
 	public class VariableDeclaration(Identifier identifier, PrimitiveType type, StorageClass storage_class, Expression source) : Declaration, ForInitialization
 	{
 		public readonly Identifier Identifier = identifier;
-		public readonly PrimitiveType Type = type;
+		public readonly PrimitiveType VariableType = type;
 		public readonly StorageClass StorageClass = storage_class;
-		public readonly Expression Source = source;
+		public Expression Source = source;
 
 		public override string ToString()
 		{
 			if (Source != null)
-				return $"VariableDeclaration(\"{Identifier}\", {Type}, {StorageClass}, {Source})";
-			return $"VariableDeclaration(\"{Identifier}\", {Type}, {StorageClass})";
+				return $"VariableDeclaration(\"{Identifier}\", {VariableType}, {StorageClass}, {Source})";
+			return $"VariableDeclaration(\"{Identifier}\", {VariableType}, {StorageClass})";
 		}
 	}
 	
-	public class FunctionDeclaration(Identifier identifier, PrimitiveType return_type, StorageClass storage_class, List<Identifier> parameters, Block body) : Declaration {
+	public class FunctionDeclaration(Identifier identifier, PrimitiveType return_type, StorageClass storage_class, List<Identifier> parameter_identifiers, List<PrimitiveType> parameter_types, Block body) : Declaration {
 		public readonly Identifier Identifier = identifier;
 		public readonly PrimitiveType ReturnType = return_type;
 		public readonly StorageClass StorageClass = storage_class;
-		public readonly List<Identifier> Parameters = parameters;
+		public readonly List<Identifier> ParameterIdentifiers = parameter_identifiers;
+		public readonly List<PrimitiveType> ParameterTypes = parameter_types;
 		public readonly Block Body = body;
 
 		public override string ToString() {
-			return $"FunctionDeclaration(\nIdentifier=\"{Identifier}\",\nReturnType={ReturnType},\nStorage={StorageClass},\n {string.Join(", ", Parameters)}\nBody(\n{Body}\n)".Replace("\n", "\n ") + "\n)";
+			return $"FunctionDeclaration(\nIdentifier=\"{Identifier}\",\nReturnType={ReturnType},\nStorage={StorageClass},\n {string.Join(", ", ParameterIdentifiers)}\nBody(\n{Body}\n)".Replace("\n", "\n ") + "\n)";
 		}
 	}
 	
 	public class Statement : BlockItem;
 	
 	public class Return(Expression expression) : Statement {
-		public readonly Expression Expression = expression;
+		public Expression Expression = expression;
 
 		public override string ToString() {
 			return $"Return(\n{Expression}".Replace("\n", "\n ") + "\n)";
@@ -146,12 +148,16 @@ public static class ParseNode {
 		}
 	}
 	
-	public class Expression : Statement, ForInitialization;
+	public class Expression : Statement, ForInitialization
+	{
+		// TODO: This will probably have to handle function types
+		public PrimitiveType ReturnType;
+	}
 	
 	public class BinaryExpression(Syntax.BinaryOperator @operator, Expression left_expression, Expression right_expression) : Expression {
 		public readonly Syntax.BinaryOperator Operator = @operator;
-		public readonly Expression LeftExpression = left_expression;
-		public readonly Expression RightExpression = right_expression;
+		public Expression LeftExpression = left_expression;
+		public Expression RightExpression = right_expression;
 
 		public override string ToString() {
 			return $"Binary({Operator}, {LeftExpression}, {RightExpression})".Replace("\n", "\n ");
@@ -161,8 +167,8 @@ public static class ParseNode {
 	public class Conditional(Expression condition, Expression then, Expression @else) : Expression
 	{
 		public readonly Expression Condition = condition;
-		public readonly Expression Then = then;
-		public readonly Expression Else = @else;
+		public Expression Then = then;
+		public Expression Else = @else;
 
 		public override string ToString()
 		{
@@ -183,35 +189,24 @@ public static class ParseNode {
 			return output;
 		}
 	}
-	
-	public class Cast(PrimitiveType target_type, Expression expression)
-	{
-		public readonly PrimitiveType TargetType = target_type;
-		public readonly Expression Expression = expression;
-		
-		public override string ToString()
-		{
-			return $"Cast({TargetType}, {Expression})".Replace("\n", "\n ");
-		}
-	}
 
 	public class Factor : Expression { }
 	
-	public class Constant : Factor;
-
-	public class IntegerConstant(int value) : Constant
+	public class Constant(BigInteger value) : Factor
 	{
-		public readonly int Value = value;
+		public readonly BigInteger Value = value;
+	}
 
+	public class IntegerConstant(BigInteger value) : Constant(value)
+	{
 		public override string ToString()
 		{
 			return $"IntegerConstant({Value})".Replace("\n", "\n ");
 		}
 	}
 	
-	public class LongConstant(long value) : Constant {
-		public readonly long Value = value;
-
+	public class LongConstant(BigInteger value) : Constant(value)
+	{
 		public override string ToString() {
 			return $"LongConstant({Value})".Replace("\n", "\n ");
 		}
@@ -225,9 +220,25 @@ public static class ParseNode {
 		}
 	}
 	
+	public class Cast : Factor
+	{
+		public readonly Expression Expression;
+		
+		public Cast(PrimitiveType return_type, Expression expression)
+		{
+			ReturnType = return_type;
+			Expression = expression;
+		}
+		
+		public override string ToString()
+		{
+			return $"Cast({ReturnType}, {Expression})".Replace("\n", "\n ");
+		}
+	}
+	
 	public class Assignment(Expression destination, Expression source) : Expression {
 		public readonly Expression Destination = destination;
-		public readonly Expression Source = source;
+		public Expression Source = source;
 
 		public override string ToString() {
 			return $"Assignment({Destination}, {Source})";

@@ -24,7 +24,7 @@ class Application
 	/// --codegen - stop before execution
 	public static void Main(string[] args)
 	{
-		CommandLineArguments command_line_arguments = new CommandLineArguments()
+		CommandLineArguments command_line_arguments = new()
 		{
 			DoLex = true,
 			DoParse = true,
@@ -175,8 +175,9 @@ class Application
 		Console.WriteLine("---------");
 		Console.WriteLine("Optimizer");
 		Console.WriteLine("---------");
-
-		CodeOptimizer.AssignVariables(assembly_tree, symbol_table);
+		
+		AssemblySymbolTable assembly_symbol_table = CodeOptimizer.GenerateAssemblySymbolTable(symbol_table);
+		CodeOptimizer.AssignVariables(assembly_tree, assembly_symbol_table);
 		CodeOptimizer.FixVariableAccesses(assembly_tree);
 		Console.WriteLine(assembly_tree);
 

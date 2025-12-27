@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Numerics;
 using System.Text.RegularExpressions;
 
 namespace FTG.Studios.MCC.Lexer;
@@ -166,13 +167,13 @@ public static class Lexer
 		// Check if integer literal
 		if (Regex.IsMatch(lexeme, Syntax.integer_literal))
 		{
-			return new Token(current_line, TokenType.IntegerConstant, int.Parse(lexeme));
+			return new Token(current_line, TokenType.IntegerConstant, BigInteger.Parse(lexeme));
 		}
 		
 		// Check if long literal
 		if (Regex.IsMatch(lexeme, Syntax.long_literal))
 		{
-			return new Token(current_line, TokenType.LongConstant, long.Parse(lexeme));
+			return new Token(current_line, TokenType.LongConstant, BigInteger.Parse(lexeme.TrimEnd('l', 'L')));
 		}
 
 		// At this point we know the lexeme is invalid since it wasn't a valid identifier or constant

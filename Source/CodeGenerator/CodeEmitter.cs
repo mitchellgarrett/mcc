@@ -33,10 +33,11 @@ public static class CodeEmitter
 		// Add '_' to front of function names if on MacOS
 		string identifier = function.Identifier;
 		if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) identifier = macos_function_prefix + identifier;
-
+		
+		// TODO: Spit out correct types in comments
 		// Function header
-		if (function.Parameters.Length == 0) file.WriteLine($"// int {function.Identifier}(void)");
-		else file.WriteLine($"// int {function.Identifier}(int * {function.Parameters.Length})");
+		if (function.Parameters.Length == 0) file.WriteLine($"// return_type {function.Identifier}(void)");
+		else file.WriteLine($"// return_type {function.Identifier}(type * {function.Parameters.Length})");
 		if (function.IsGlobal) file.WriteLine($".globl {identifier}");
 		file.WriteLine(".text");
 		file.WriteLine($"{identifier}:");
@@ -57,19 +58,20 @@ public static class CodeEmitter
 		string identifier = variable.Identifier;
 		if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) identifier = macos_function_prefix + identifier;
 		
-		file.WriteLine($"// {(variable.IsGlobal ? "extern" : "static")} int {variable.Identifier} = {variable.InitialValue}");
+		file.WriteLine($"// {(variable.IsGlobal ? "extern" : "static")} int {variable.Identifier} = {variable.InitialValue.Value}");
 		if (variable.IsGlobal) file.WriteLine($".globl {identifier}");
 		
 		// Zero-initialized variables go to the bss section
-		if (variable.InitialValue == 0) file.WriteLine(".bss");
+		bool is_zero = variable.InitialValue.Value == 0;
+		if (is_zero) file.WriteLine(".bss");
 		else file.WriteLine(".data");
 		
-		if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) file.WriteLine(".balign 4");
-		else file.WriteLine(".align 4");
+		if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) file.WriteLine($".balign {variable.Alignment}");
+		else file.WriteLine($".align {variable.Alignment}");
 		
 		file.WriteLine($"{identifier}:");
 		
-		if (variable.InitialValue == 0) file.WriteLine($".zero 4");
-		else file.WriteLine($".long {variable.InitialValue}");
+		if (is_zero) file.WriteLine($".zero {variable.InitialValue.Type.ToAssemblyType().GetSize()}");
+		else file.WriteLine($"{variable.InitialValue.Type.ToAssemblyType().GetInitializer()} {variable.InitialValue.Value}");
 	}
 }

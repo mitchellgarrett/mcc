@@ -1,3 +1,6 @@
+using System.Numerics;
+using FTG.Studios.MCC.Parser;
+
 namespace FTG.Studios.MCC.Intermediate;
 
 public static partial class IntermediateNode
@@ -8,9 +11,10 @@ public static partial class IntermediateNode
 		public abstract string ToCommentString();
 	}
 
-	public class Constant(int value) : Operand
+	public class Constant(ParseNode.PrimitiveType type, BigInteger value) : Operand
 	{
-		public readonly int Value = value;
+		public readonly ParseNode.PrimitiveType Type = type;
+		public readonly BigInteger Value = value;
 
 		public override string ToCommentString()
 		{
@@ -19,13 +23,18 @@ public static partial class IntermediateNode
 
 		public override string ToString()
 		{
-			return $"Constant({Value})";
+			return $"Constant({Type}, {Value})";
 		}
 	}
 
 	public static Constant ToIntermediateConstant(this int value)
 	{
-		return new Constant(value);
+		return new Constant(ParseNode.PrimitiveType.Integer, value);
+	}
+	
+	public static Constant ToIntermediateConstant(this long value)
+	{
+		return new Constant(ParseNode.PrimitiveType.Long, value);
 	}
 
 	public class Variable(string identifier) : Operand

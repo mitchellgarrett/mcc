@@ -16,6 +16,28 @@ public static partial class IntermediateNode
 			return $"Return({Value})";
 		}
 	}
+	
+	public class SignExtend(Operand source, Operand destination) : Instruction
+	{
+		public readonly Operand Source = source;
+		public readonly Operand Destination = destination;
+
+		public override string ToString()
+		{
+			return $"SignExtend({Source}, {Destination})";
+		}
+	}
+	
+	public class Truncate(Operand source, Operand destination) : Instruction
+	{
+		public readonly Operand Source = source;
+		public readonly Operand Destination = destination;
+
+		public override string ToString()
+		{
+			return $"Truncate({Source}, {Destination})";
+		}
+	}
 
 	public class Copy(Operand source, Operand destination) : Instruction
 	{

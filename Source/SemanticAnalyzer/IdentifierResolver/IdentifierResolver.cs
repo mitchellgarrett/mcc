@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using FTG.Studios.MCC.Parser;
 
@@ -30,7 +29,7 @@ public static class IdentifierResolver
 		identifier_map = identifier_map.Copy();
 
 		List<ParseNode.Identifier> unique_parameters = [];
-		foreach (var parameter in function_declaration.Parameters)
+		foreach (var parameter in function_declaration.ParameterIdentifiers)
 		{
 			ParseNode.Identifier unique_parameter = new(identifier_map.InsertUniqueIdentifier(parameter.Value, false, SymbolTable.SymbolClass.Variable));
 			unique_parameters.Add(unique_parameter);
@@ -39,7 +38,7 @@ public static class IdentifierResolver
 		ParseNode.Block unique_body = null;
 		if (function_declaration.Body != null) unique_body = ResolveIdentifiersInBlock(identifier_map, function_declaration.Body);
 
-		return new ParseNode.FunctionDeclaration(new ParseNode.Identifier(unique_identifier), function_declaration.ReturnType, function_declaration.StorageClass, unique_parameters, unique_body);
+		return new ParseNode.FunctionDeclaration(new ParseNode.Identifier(unique_identifier), function_declaration.ReturnType, function_declaration.StorageClass, unique_parameters, function_declaration.ParameterTypes, unique_body);
 	}
 
 	static ParseNode.VariableDeclaration ResolveIdentifiersInFileScopeVariableDeclaration(IdentifierMap identifier_map, ParseNode.VariableDeclaration variable_declaration)
@@ -74,7 +73,7 @@ public static class IdentifierResolver
 		ParseNode.Expression resolved_initialization = null;
 		if (variable_declaration.Source != null) resolved_initialization = ResolveIdentifiersInExpression(identifier_map, variable_declaration.Source);
 
-		return new ParseNode.VariableDeclaration(new ParseNode.Identifier(unique_identifier), variable_declaration.Type, variable_declaration.StorageClass, resolved_initialization);
+		return new ParseNode.VariableDeclaration(new ParseNode.Identifier(unique_identifier), variable_declaration.VariableType, variable_declaration.StorageClass, resolved_initialization);
 	}
 	
 	static ParseNode.Block ResolveIdentifiersInBlock(IdentifierMap identifier_map, ParseNode.Block block)
@@ -160,8 +159,11 @@ public static class IdentifierResolver
 		if (expression is ParseNode.Assignment assignment)
 		{
 			// Assignment definition must be a variable to be resolved
-			if (!(assignment.Destination is ParseNode.Variable)) throw new SemanticAnalzyerException($"Assignment destination is not a variable ({assignment}).", assignment.ToString());
-			return new ParseNode.Assignment(ResolveIdentifiersInExpression(identifier_map, assignment.Destination), ResolveIdentifiersInExpression(identifier_map, assignment.Source));
+			if (assignment.Destination is not ParseNode.Variable) throw new SemanticAnalzyerException($"Assignment destination is not a variable ({assignment}).", assignment.ToString());
+			return new ParseNode.Assignment(
+				ResolveIdentifiersInExpression(identifier_map, assignment.Destination), 
+				ResolveIdentifiersInExpression(identifier_map, assignment.Source)
+			);
 		}
 
 		if (expression is ParseNode.Conditional conditional)
@@ -176,7 +178,7 @@ public static class IdentifierResolver
 		if (expression is ParseNode.FunctionCall function_call)
 		{
 			string unique_identifier = identifier_map.GetUniqueIdentifier(function_call.Identifier.Value, SymbolTable.SymbolClass.Function);
-			List<ParseNode.Expression> unique_arguments = new List<ParseNode.Expression>();
+			List<ParseNode.Expression> unique_arguments = [];
 			foreach (var argument in function_call.Arguments)
 				unique_arguments.Add(ResolveIdentifiersInExpression(identifier_map, argument));
 			return new ParseNode.FunctionCall(new ParseNode.Identifier(unique_identifier), unique_arguments);
@@ -196,7 +198,8 @@ public static class IdentifierResolver
 			string unique_identifier = identifier_map.GetUniqueIdentifier(variable.Identifier.Value, SymbolTable.SymbolClass.Variable);
 			return new ParseNode.Variable(new ParseNode.Identifier(unique_identifier));
 		}
-
+		
+		if (factor is ParseNode.Cast cast) return new ParseNode.Cast(cast.ReturnType, ResolveIdentifiersInExpression(identifier_map, cast.Expression));
 		if (factor is ParseNode.UnaryExpression unary) return new ParseNode.UnaryExpression(unary.Operator, ResolveIdentifiersInExpression(identifier_map, unary.Expression));
 		if (factor is ParseNode.Constant constant) return constant;
 

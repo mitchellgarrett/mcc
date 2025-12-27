@@ -36,7 +36,7 @@ public static class Syntax {
 	public const char operator_ternary_true = '?';
 	public const char operator_ternary_false = ':';
 	
-	public const string identifier = @"[a-zA-Z]\w*\b";
+	public const string identifier = @"^[a-zA-Z]\w*\b$";
 	public const string integer_literal = @"^[0-9]+\b$";
 	public const string long_literal = @"^[0-9]+[lL]\b$";
 
@@ -54,17 +54,17 @@ public static class Syntax {
 	public enum UnaryOperator { Negation, Not, BitwiseComplement, Decrement };
 	public enum BinaryOperator { Addition, Subtraction, Multiplication, Division, Remainder, Assignment, LogicalAnd, LogicalOr, LogicalEqual, LogicalNotEqual, LogicalLess, LogicalGreater, LogicalLessEqual, LogicalGreaterEqual, ConditionalTrue, ConditionalFalse };
 	
-	static readonly string[] unary_operators = new string[] { operator_negation.ToString(), operator_not.ToString(), operator_bitwise_complement.ToString(), operator_decrement };
+	static readonly string[] unary_operators = [operator_negation.ToString(), operator_not.ToString(), operator_bitwise_complement.ToString(), operator_decrement];
 	public static string GetOperator(this UnaryOperator op) {
 		return unary_operators[(int)op];
 	}
 	
-	static readonly string[] binary_operators = new string[] { operator_addition.ToString(), operator_subtraction.ToString(), operator_multiplication.ToString(), operator_division.ToString(), operator_remainder.ToString(), operator_assignment.ToString(), operator_logical_and, operator_logical_or, operator_logical_equal, operator_logical_not_equal, operator_logical_less, operator_logical_greater, operator_logical_less_equal, operator_logical_greater_equal, operator_ternary_true.ToString(), operator_ternary_false.ToString() };
+	static readonly string[] binary_operators = [operator_addition.ToString(), operator_subtraction.ToString(), operator_multiplication.ToString(), operator_division.ToString(), operator_remainder.ToString(), operator_assignment.ToString(), operator_logical_and, operator_logical_or, operator_logical_equal, operator_logical_not_equal, operator_logical_less, operator_logical_greater, operator_logical_less_equal, operator_logical_greater_equal, operator_ternary_true.ToString(), operator_ternary_false.ToString()];
 	public static string GetOperator(this BinaryOperator op) {
 		return binary_operators[(int)op];
 	}
 	
-	static readonly int[] operator_precedence = new int[] { 45, 45, 50, 50, 50, 1, 10, 5, 30, 30, 35, 35, 35, 35, 3, -1 };
+	static readonly int[] operator_precedence = [45, 45, 50, 50, 50, 1, 10, 5, 30, 30, 35, 35, 35, 35, 3, -1];
 	public static int GetPrecedence(this BinaryOperator op) {
 		return operator_precedence[(int)op];
 	}

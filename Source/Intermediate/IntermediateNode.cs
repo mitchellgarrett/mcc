@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using FTG.Studios.MCC.SemanticAnalysis;
 
 namespace FTG.Studios.MCC.Intermediate;
 
@@ -35,11 +36,11 @@ public static partial class IntermediateNode {
 		}
 	}
 	
-	public class StaticVariable(string identifier, bool is_global, int initial_value) : TopLevel
+	public class StaticVariable(string identifier, bool is_global, InitialValue.Constant initial_value) : TopLevel
 	{
 		public readonly string Identifier = identifier;
 		public readonly bool IsGlobal = is_global;
-		public readonly int InitialValue = initial_value;
+		public readonly InitialValue.Constant InitialValue = initial_value;
 
 		public override string ToString()
 		{
@@ -50,14 +51,9 @@ public static partial class IntermediateNode {
 	/// <summary>
 	/// Node to store useful comment data that gets propogated to the final assembly file.
 	/// </summary>
-	public class Comment : Instruction
+	public class Comment(object data) : Instruction
 	{
-		public readonly object Data;
-
-		public Comment(object data)
-		{
-			Data = data;
-		}
+		public readonly object Data = data;
 
 		public override string ToString()
 		{

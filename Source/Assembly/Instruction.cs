@@ -12,19 +12,36 @@ public static partial class AssemblyNode
 		public abstract string Emit();
 	}
 
-	public class MOV(Operand source, Operand destination) : Instruction
+	public class MOV(AssemblyType type, Operand source, Operand destination) : Instruction
+	{
+		public AssemblyType Type = type;
+		public Operand Source = source;
+		public Operand Destination = destination;
+
+		public override string Emit()
+		{
+			return $"mov{Type.GetSuffix()} {Source.Emit(Type)}, {Destination.Emit(Type)}";
+		}
+
+		public override string ToString()
+		{
+			return $"MOV({Type}, {Source}, {Destination})";
+		}
+	}
+	
+	public class MOVSX(Operand source, Operand destination) : Instruction
 	{
 		public Operand Source = source;
 		public Operand Destination = destination;
 
 		public override string Emit()
 		{
-			return $"movl {Source.Emit()}, {Destination.Emit()}";
+			return $"movslq {Source.Emit(AssemblyType.LongWord)}, {Destination.Emit(AssemblyType.QuadWord)}";
 		}
 
 		public override string ToString()
 		{
-			return $"MOV({Source}, {Destination})";
+			return $"MOVSX({Source}, {Destination})";
 		}
 	}
 
@@ -41,13 +58,14 @@ public static partial class AssemblyNode
 		}
 	}
 
-	public class IDIV(Operand operand) : Instruction
+	public class IDIV(AssemblyType type, Operand operand) : Instruction
 	{
+		public AssemblyType Type = type;
 		public Operand Operand = operand;
 
 		public override string Emit()
 		{
-			return $"idivl {Operand.Emit()}";
+			return $"idiv{Type.GetSuffix()} {Operand.Emit(Type)}";
 		}
 
 		public override string ToString()
@@ -56,11 +74,18 @@ public static partial class AssemblyNode
 		}
 	}
 
-	public class CDQ : Instruction
+	public class CDQ(AssemblyType type) : Instruction
 	{
+		public AssemblyType Type = type;
+		
 		public override string Emit()
 		{
-			return "cdq";
+			return Type switch
+			{
+				AssemblyType.LongWord => "cdq",
+				AssemblyType.QuadWord => "cqo",
+				_ => throw new System.Exception(),
+			};
 		}
 
 		public override string ToString()
@@ -69,19 +94,20 @@ public static partial class AssemblyNode
 		}
 	}
 
-	public class CMP(Operand left_operand, Operand right_operand) : Instruction
+	public class CMP(AssemblyType type, Operand left_operand, Operand right_operand) : Instruction
 	{
+		public AssemblyType Type = type;
 		public Operand LeftOperand = left_operand;
 		public Operand RightOperand = right_operand;
 
 		public override string Emit()
 		{
-			return $"cmpl {LeftOperand.Emit()}, {RightOperand.Emit()}";
+			return $"cmp{Type.GetSuffix()} {LeftOperand.Emit(Type)}, {RightOperand.Emit(Type)}";
 		}
 
 		public override string ToString()
 		{
-			return $"CMP({LeftOperand.Emit()}, {RightOperand.Emit()})";
+			return $"CMP({LeftOperand.Emit(Type)}, {RightOperand.Emit(Type)})";
 		}
 	}
 
@@ -123,7 +149,7 @@ public static partial class AssemblyNode
 
 		public override string Emit()
 		{
-			return $"set{Condition.ToString().ToLower()} {Operand.Emit()}";
+			return $"set{Condition.ToString().ToLower()} {Operand.Emit(AssemblyType.LongWord)}";
 		}
 
 		public override string ToString()
@@ -147,38 +173,9 @@ public static partial class AssemblyNode
 		}
 	}
 
-	public class AllocateStack(int offset) : Instruction
+	public class Unary(AssemblyType type, Syntax.UnaryOperator @operator, Operand operand) : Instruction
 	{
-		public int Offset = offset;
-
-		public override string Emit()
-		{
-			return $"subq ${Offset}, %rsp";
-		}
-
-		public override string ToString()
-		{
-			return $"AllocateStack({Offset})";
-		}
-	}
-
-	public class DeallocateStack(int offset) : Instruction
-	{
-		public int Offset = offset;
-
-		public override string Emit()
-		{
-			return $"addq ${Offset}, %rsp";
-		}
-
-		public override string ToString()
-		{
-			return $"DeallocateStack({Offset})";
-		}
-	}
-
-	public class Unary(Syntax.UnaryOperator @operator, Operand operand) : Instruction
-	{
+		public AssemblyType Type = type;
 		public readonly Syntax.UnaryOperator Operator = @operator;
 		public Operand Operand = operand;
 
@@ -186,8 +183,8 @@ public static partial class AssemblyNode
 		{
 			switch (Operator)
 			{
-				case Syntax.UnaryOperator.BitwiseComplement: return $"notl {Operand.Emit()}";
-				case Syntax.UnaryOperator.Negation: return $"negl {Operand.Emit()}";
+				case Syntax.UnaryOperator.BitwiseComplement: return $"not{Type.GetSuffix()} {Operand.Emit(Type)}";
+				case Syntax.UnaryOperator.Negation: return $"neg{Type.GetSuffix()} {Operand.Emit(Type)}";
 			}
 			return null;
 		}
@@ -198,8 +195,9 @@ public static partial class AssemblyNode
 		}
 	}
 
-	public class Binary(Syntax.BinaryOperator @operator, Operand source, Operand destination) : Instruction
+	public class Binary(AssemblyType type, Syntax.BinaryOperator @operator, Operand source, Operand destination) : Instruction
 	{
+		public AssemblyType Type = type;
 		public readonly Syntax.BinaryOperator Operator = @operator;
 		public Operand Source = source;
 		public Operand Destination = destination;
@@ -208,9 +206,9 @@ public static partial class AssemblyNode
 		{
 			return Operator switch
 			{
-				Syntax.BinaryOperator.Addition => $"addl {Source.Emit()}, {Destination.Emit()}",
-				Syntax.BinaryOperator.Subtraction => $"subl {Source.Emit()}, {Destination.Emit()}",
-				Syntax.BinaryOperator.Multiplication => $"imull {Source.Emit()}, {Destination.Emit()}",
+				Syntax.BinaryOperator.Addition => $"add{Type.GetSuffix()} {Source.Emit(Type)}, {Destination.Emit(Type)}",
+				Syntax.BinaryOperator.Subtraction => $"sub{Type.GetSuffix()} {Source.Emit(Type)}, {Destination.Emit(Type)}",
+				Syntax.BinaryOperator.Multiplication => $"imul{Type.GetSuffix()} {Source.Emit(Type)}, {Destination.Emit(Type)}",
 				_ => null,
 			};
 		}
@@ -228,9 +226,7 @@ public static partial class AssemblyNode
 		public override string Emit()
 		{
 			// Push requires 64-bit values
-			if (Operand is Register register)
-				return $"pushq {register.Value.Emit64()}";
-			return $"pushq {Operand.Emit()}";
+			return $"pushq {Operand.Emit(AssemblyType.QuadWord)}";
 		}
 
 		public override string ToString()

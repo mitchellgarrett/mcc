@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Numerics;
 using FTG.Studios.MCC.Parser;
 
 namespace FTG.Studios.MCC.SemanticAnalysis;
@@ -25,19 +26,25 @@ public abstract class InitialValue
 {
 	public class None : InitialValue { }
 	public class Tentative : InitialValue { }
-
-	public class Constant(int value) : InitialValue
+	
+	public class Constant(ParseNode.PrimitiveType type, BigInteger value) : InitialValue
 	{
-		public int Value = value;
+		public readonly ParseNode.PrimitiveType Type = type;
+		public readonly BigInteger Value = value;
 	}
 }
 
-public struct SymbolTableEntry(SymbolTable.SymbolClass symbol_class, ParseNode.PrimitiveType return_type, int parameter_count, IdentifierAttributes attributes)
+public abstract class SymbolTableEntry(IdentifierAttributes attributes, ParseNode.PrimitiveType return_type)
 {
-	public SymbolTable.SymbolClass SymbolClass = symbol_class;
-	public ParseNode.PrimitiveType ReturnType = return_type;
-	public int ParamaterCount = parameter_count;
 	public IdentifierAttributes Attributes = attributes;
+	public ParseNode.PrimitiveType ReturnType = return_type;
+}
+
+public class VariableEntry(IdentifierAttributes attributes, ParseNode.PrimitiveType return_type) : SymbolTableEntry(attributes, return_type);
+
+public class FunctionEntry(IdentifierAttributes attributes, ParseNode.PrimitiveType return_type, List<ParseNode.PrimitiveType> parameter_types) : SymbolTableEntry(attributes, return_type)
+{
+	public List<ParseNode.PrimitiveType> ParameterTypes = parameter_types;
 }
 
 public class SymbolTable : IEnumerable<(string, SymbolTableEntry)>
@@ -46,14 +53,14 @@ public class SymbolTable : IEnumerable<(string, SymbolTableEntry)>
 
 	readonly Dictionary<string, SymbolTableEntry> symbols = [];
 
-	public void AddVariable(string identifier, ParseNode.PrimitiveType type, IdentifierAttributes attributes)
+	public void AddVariable(string identifier, IdentifierAttributes attributes, ParseNode.PrimitiveType type)
 	{
-		symbols[identifier] = new SymbolTableEntry(SymbolClass.Variable, type, 0, attributes);
+		symbols[identifier] = new VariableEntry(attributes, type);
 	}
 
-	public void AddFunction(string identifier, ParseNode.PrimitiveType type, int parameter_count, IdentifierAttributes attributes)
+	public void AddFunction(string identifier, IdentifierAttributes attributes, ParseNode.PrimitiveType return_type, List<ParseNode.PrimitiveType> parameter_types)
 	{
-		symbols[identifier] = new SymbolTableEntry(SymbolClass.Function, type, parameter_count, attributes);
+		symbols[identifier] = new FunctionEntry(attributes, return_type, parameter_types);
 	}
 
 	public SymbolTableEntry GetSymbol(string identifier)

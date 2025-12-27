@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using FTG.Studios.MCC.SemanticAnalysis;
 
 namespace FTG.Studios.MCC.Assembly;
 
@@ -35,15 +36,16 @@ public static partial class AssemblyNode {
 		}
 	}
 	
-	public class StaticVariable(string identifier, bool is_global, int initial_value) : TopLevel
+	public class StaticVariable(string identifier, bool is_global, int alignment, InitialValue.Constant initial_value) : TopLevel
 	{
 		public readonly string Identifier = identifier;
 		public readonly bool IsGlobal = is_global;
-		public readonly int InitialValue = initial_value;
+		public readonly int Alignment = alignment;
+		public readonly InitialValue.Constant InitialValue = initial_value;
 
 		public override string ToString()
 		{
-			return $"StaticVariable(\"{Identifier}\", Global={IsGlobal}, InitialValue={InitialValue})";
+			return $"StaticVariable(\"{Identifier}\", Global={IsGlobal}, InitialValue={InitialValue.Value})";
 		}
 	}
 	

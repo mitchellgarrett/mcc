@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Runtime.InteropServices;
 using FTG.Studios.MCC.CodeGeneration;
 
@@ -8,17 +9,21 @@ public static partial class AssemblyNode
 
 	public abstract class Operand : Node
 	{
-		public abstract string Emit();
+		public abstract string Emit(AssemblyType type);
 	}
 
 	public class Register(RegisterType value) : Operand
 	{
 		public readonly RegisterType Value = value;
 
-		// TODO: This changes depending on 32 or 64 bit
-		public override string Emit()
+		public override string Emit(AssemblyType type)
 		{
-			return Value.Emit32();
+			return type switch
+			{
+				AssemblyType.LongWord => Value.Emit32(),
+				AssemblyType.QuadWord => Value.Emit64(),
+				_ => throw new System.Exception(),
+			};
 		}
 
 		public override string ToString()
@@ -27,11 +32,11 @@ public static partial class AssemblyNode
 		}
 	}
 
-	public class Immediate(int value) : Operand
+	public class Immediate(BigInteger value) : Operand
 	{
-		public readonly int Value = value;
+		public readonly BigInteger Value = value;
 
-		public override string Emit()
+		public override string Emit(AssemblyType type)
 		{
 			return $"${Value}";
 		}
@@ -51,7 +56,7 @@ public static partial class AssemblyNode
 	{
 		public readonly string Identifier = identifier;
 
-		public override string Emit()
+		public override string Emit(AssemblyType type)
 		{
 			return $"{Identifier}";
 		}
@@ -68,7 +73,7 @@ public static partial class AssemblyNode
 	{
 		public readonly int Offset = offset;
 
-		public override string Emit()
+		public override string Emit(AssemblyType type)
 		{
 			return $"{Offset}(%rbp)";
 		}
@@ -83,7 +88,7 @@ public static partial class AssemblyNode
 	{
 		public readonly string Identifier = identifier;
 
-		public override string Emit()
+		public override string Emit(AssemblyType type)
 		{
 			if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) return $"{CodeEmitter.macos_function_prefix}{Identifier}(%rip)";
 			return $"{Identifier}(%rip)";

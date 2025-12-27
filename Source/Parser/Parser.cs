@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using FTG.Studios.MCC.Lexer;
 
 namespace FTG.Studios.MCC.Parser;
@@ -62,8 +63,7 @@ public static partial class Parser {
 
 		Expect(tokens.Dequeue(), TokenType.OpenParenthesis);
 		
-		// TODO: Include parameter types
-		List<ParseNode.Identifier> parameters = ParseParameterList(tokens);
+		(List<ParseNode.Identifier> parameter_identifiers, List<ParseNode.PrimitiveType> parameter_types) = ParseParameterList(tokens);
 
 		Expect(tokens.Dequeue(), TokenType.CloseParenthesis);
 
@@ -71,7 +71,7 @@ public static partial class Parser {
 		if (Match(tokens.Peek(), TokenType.Semicolon)) tokens.Dequeue();
 		else body = ParseBlock(tokens);
 
-		return new ParseNode.FunctionDeclaration(identifier, return_type, storage_class, parameters, body);
+		return new ParseNode.FunctionDeclaration(identifier, return_type, storage_class, parameter_identifiers, parameter_types, body);
 	}
 
 	/// <summary>
@@ -126,7 +126,7 @@ public static partial class Parser {
 	/// <returns></returns>
 	static ParseNode.PrimitiveType ParseTypeSpecifier(LinkedList<Token> tokens)
 	{
-		HashSet<ParseNode.PrimitiveType> specifiers = [];
+		List<ParseNode.PrimitiveType> specifiers = [];
 		
 		while (Match(tokens.Peek(), TokenType.Keyword) && Enum.GetNames<ParseNode.PrimitiveType>().Contains(tokens.Peek().Value.ToString()))
 		{
@@ -137,11 +137,12 @@ public static partial class Parser {
 		return ParseTypeSpecifierFromList(specifiers);
 	}
 	
-	static ParseNode.PrimitiveType ParseTypeSpecifierFromList(HashSet<ParseNode.PrimitiveType> specifiers)
+	static ParseNode.PrimitiveType ParseTypeSpecifierFromList(List<ParseNode.PrimitiveType> specifiers)
 	{
-		if (specifiers.SetEquals([ParseNode.PrimitiveType.Integer])) return ParseNode.PrimitiveType.Integer;
-		if (specifiers.SetEquals([ParseNode.PrimitiveType.Long])) return ParseNode.PrimitiveType.Long;
-		if (specifiers.SetEquals([ParseNode.PrimitiveType.Integer, ParseNode.PrimitiveType.Long])) return ParseNode.PrimitiveType.Integer;
+		// This is absolute dogwater
+		if (specifiers.Count == 1 && specifiers.Contains(ParseNode.PrimitiveType.Integer)) return ParseNode.PrimitiveType.Integer;
+		if (specifiers.Count == 1 && specifiers.Contains(ParseNode.PrimitiveType.Long)) return ParseNode.PrimitiveType.Long;
+		if (specifiers.Count == 2 && specifiers.Contains(ParseNode.PrimitiveType.Integer) && specifiers.Contains(ParseNode.PrimitiveType.Long)) return ParseNode.PrimitiveType.Long;
 		
 		throw new ParserException($"Invalid specifier \"{string.Join(", ", specifiers)}\".", Token.Invalid(-1));
 	}
@@ -156,7 +157,7 @@ public static partial class Parser {
 	{
 		List<Token> specifiers = ParseSpecifierList(tokens);
 
-		HashSet<ParseNode.PrimitiveType> types = [];
+		List<ParseNode.PrimitiveType> types = [];
 		List<ParseNode.StorageClass> storage_classes = [];
 
 		foreach (var specifier in specifiers)
@@ -184,31 +185,26 @@ public static partial class Parser {
 	/// </summary>
 	/// <param name="tokens"></param>
 	/// <returns></returns>
-	static List<ParseNode.Identifier> ParseParameterList(LinkedList<Token> tokens)
+	static (List<ParseNode.Identifier>, List<ParseNode.PrimitiveType>) ParseParameterList(LinkedList<Token> tokens)
 	{
-		// TODO: Make this return types too
-		List<ParseNode.Identifier> parameter_identifiers = [];
-
 		if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Void))
 		{
 			tokens.Dequeue();
-			return parameter_identifiers;
+			return ([], []);
 		}
-
-		List<List<ParseNode.PrimitiveType>> parameter_types = [];
-		parameter_types.Add([]);
-		while (!Match(tokens.Peek(), TokenType.Identifier)) parameter_types[0].Add(ParseTypeSpecifier(tokens));
-		parameter_identifiers.Add(ParseIdentifier(tokens));
-
-		while (Match(tokens.Peek(), TokenType.Comma))
-		{
-			tokens.Dequeue();
-			parameter_types.Add([]);
-			while (!Match(tokens.Peek(), TokenType.Identifier)) parameter_types[^1].Add(ParseTypeSpecifier(tokens));
+		
+		List<ParseNode.Identifier> parameter_identifiers = [];
+		List<ParseNode.PrimitiveType> parameter_types = [];
+		Token last_token;
+		do {
+			List<ParseNode.PrimitiveType> specifiers = [];
+			while (!Match(tokens.Peek(), TokenType.Identifier)) specifiers.Add(ParseTypeSpecifier(tokens));
+			parameter_types.Add(ParseTypeSpecifierFromList(specifiers));
 			parameter_identifiers.Add(ParseIdentifier(tokens));
-		}
+		} while (Match(last_token = tokens.Dequeue(), TokenType.Comma));
+		tokens.AddFirst(last_token);
 
-		return parameter_identifiers;
+		return (parameter_identifiers, parameter_types);
 	}
 	
 	/// <summary>
@@ -220,7 +216,7 @@ public static partial class Parser {
 	{
 		// TODO: Make this better
 		// Check if the current token is a declaration specifier. If so, it is a function or variable declaration
-		Syntax.Keyword[] valid_specifiers = [ Syntax.Keyword.Integer, Syntax.Keyword.Static, Syntax.Keyword.Extern ];
+		Syntax.Keyword[] valid_specifiers = [Syntax.Keyword.Integer, Syntax.Keyword.Long, Syntax.Keyword.Static, Syntax.Keyword.Extern];
 		if (Match(tokens.Peek(), TokenType.Keyword) && valid_specifiers.Contains((Syntax.Keyword)tokens.Peek().Value)) return ParseDeclaration(tokens);
 		// If not, it is a statement
 		return ParseStatement(tokens);
@@ -363,8 +359,12 @@ public static partial class Parser {
 	/// <returns></returns>
 	static ParseNode.ForInitialization ParseForInitialization(LinkedList<Token> tokens)
 	{
-		// If first token is 'int' then this is a variable declaration
-		if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Integer))
+		// TODO: Find a better way to handle multiple types
+		// If first token is 'int' or 'long' then this is a variable declaration
+		if (
+			Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Integer) ||
+			Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Long)
+		)
 		{
 			ParseNode.Declaration declaration = ParseDeclaration(tokens);
 			if (declaration is ParseNode.VariableDeclaration variable_declaration)
@@ -478,8 +478,9 @@ public static partial class Parser {
 			// TODO: Make type parsing better plz
 			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Integer) || Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Long))
 			{
-				ParseTypeSpecifier(tokens);
+				ParseNode.PrimitiveType type = ParseTypeSpecifier(tokens);
 				Expect(tokens.Dequeue(), TokenType.CloseParenthesis);
+				return new ParseNode.Cast(type, ParseExpression(tokens, 0));
 			}
 			
 			// Otherwise it is an expression wrapped in parentheses
@@ -543,10 +544,16 @@ public static partial class Parser {
 	}
 	
 	static ParseNode.Constant ParseConstantExpression(LinkedList<Token> tokens) {
-		// TODO: This may have to handle big integer values
 		Token token = tokens.Dequeue();
-		if (Match(token, TokenType.IntegerConstant)) return new ParseNode.IntegerConstant((int)token.Value);
-		if (Match(token, TokenType.LongConstant)) return new ParseNode.LongConstant((long)token.Value);
+		if (Match(token, TokenType.IntegerConstant) || Match(token, TokenType.LongConstant))
+		{
+			BigInteger value = (BigInteger)token.Value;
+			// Value must be smaller than the max long value
+			if (value > long.MaxValue) throw new ParserException($"Integer value: {token.Value} is too big to be represented as an 'int' or 'long'.", token);
+			
+			if (Match(token, TokenType.IntegerConstant) && value <= int.MaxValue) return new ParseNode.IntegerConstant((int)value);
+			return new ParseNode.LongConstant((long)value);
+		}
 		throw new ParserException($"Invalid constant: {token.Value}", token);
 	}
 
