@@ -45,7 +45,7 @@ public static partial class AssemblyNode {
 
 		public override string ToString()
 		{
-			return $"StaticVariable(\"{Identifier}\", Global={IsGlobal}, InitialValue={InitialValue.Value})";
+			return $"StaticVariable(\"{Identifier}\", Global={IsGlobal}, Alignment={Alignment}, InitialValue={InitialValue.Value})";
 		}
 	}
 	

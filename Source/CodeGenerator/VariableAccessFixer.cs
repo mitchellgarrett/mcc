@@ -17,8 +17,10 @@ public static class VariableAccessFixer
 		{
 			if (function.Body[index] is AssemblyNode.MOV) FixVariableAccessesMOV(function.Body, index);
 			if (function.Body[index] is AssemblyNode.MOVSX) FixVariableAccessesMOVSX(function.Body, index);
+			if (function.Body[index] is AssemblyNode.MOVZ) FixVariableAccessesMOVZ(function.Body, index);
 			if (function.Body[index] is AssemblyNode.CMP) FixVariableAccessesCMP(function.Body, index);
 			if (function.Body[index] is AssemblyNode.IDIV) FixVariableAccessesIDIV(function.Body, index);
+			if (function.Body[index] is AssemblyNode.DIV) FixVariableAccessesDIV(function.Body, index);
 			if (function.Body[index] is AssemblyNode.Push) FixVariableAccessesPush(function.Body, index);
 			if (function.Body[index] is AssemblyNode.Binary) FixVariableAccessesBinaryInstruction(function.Body, index);
 		}
@@ -73,10 +75,27 @@ public static class VariableAccessFixer
 		instruction.Source = source;
 	}
 	
+	static void FixVariableAccessesMOVZ(List<AssemblyNode.Instruction> instructions, int index) {
+		AssemblyNode.MOVZ instruction = instructions[index] as AssemblyNode.MOVZ;
+		// Remove the original instruction since it doesn't actually exist
+		instructions.RemoveAt(index);
+		
+		// If the destination is already a register, we just move the source to it
+		if (instruction.Destination is AssemblyNode.Register) {
+			instructions.Insert(index, new AssemblyNode.MOV(AssemblyType.LongWord, instruction.Source, instruction.Destination));
+		}
+		
+		// If the destination is already a memory access, we have to move the source to a register first
+		if (instruction.Destination is AssemblyNode.MemoryAccess) {
+			instructions.Insert(index, new AssemblyNode.MOV(AssemblyType.LongWord, instruction.Source, RegisterType.R11.ToOperand()));
+			instructions.Insert(index + 1, new AssemblyNode.MOV(AssemblyType.QuadWord, RegisterType.R11.ToOperand(), instruction.Destination));
+		}
+	}
+	
 	static void FixVariableAccessesCMP(List<AssemblyNode.Instruction> instructions, int index) {
-		// CMP can't have an immediate value >= 2^32
+		// CMP can't have an immediate value >= 2^32, including negatives since their binary representation has the MSB set
 		AssemblyNode.CMP instruction = instructions[index] as AssemblyNode.CMP;
-		if (instruction.LeftOperand is AssemblyNode.Immediate left_operand && left_operand.Value > int.MaxValue)
+		if (instruction.LeftOperand is AssemblyNode.Immediate left_operand && (left_operand.Value > int.MaxValue || left_operand.Value < 0))
 		{
 			instructions.Insert(index++, new AssemblyNode.MOV(AssemblyType.QuadWord, left_operand, RegisterType.R10.ToOperand()));
 			instruction.LeftOperand = RegisterType.R10.ToOperand();
@@ -96,8 +115,17 @@ public static class VariableAccessFixer
 	}
 	
 	static void FixVariableAccessesIDIV(List<AssemblyNode.Instruction> instructions, int index) {
-		// IDIV can't have immediate as operand
+		// IDIV can't have an immediate as the operand
 		AssemblyNode.IDIV instruction = instructions[index] as AssemblyNode.IDIV;
+		if (instruction.Operand is AssemblyNode.Immediate immediate) {
+			instruction.Operand = RegisterType.R10.ToOperand();
+			instructions.Insert(index, new AssemblyNode.MOV(instruction.Type, immediate, RegisterType.R10.ToOperand()));
+		}
+	}
+	
+	static void FixVariableAccessesDIV(List<AssemblyNode.Instruction> instructions, int index) {
+		// DIV can't have an immediate as the operand
+		AssemblyNode.DIV instruction = instructions[index] as AssemblyNode.DIV;
 		if (instruction.Operand is AssemblyNode.Immediate immediate) {
 			instruction.Operand = RegisterType.R10.ToOperand();
 			instructions.Insert(index, new AssemblyNode.MOV(instruction.Type, immediate, RegisterType.R10.ToOperand()));

@@ -33,8 +33,13 @@ public static class TypeChecker
 		if (symbol_table.TryGetSymbol(declaration.Identifier.Value, out SymbolTableEntry old_entry))
 		{
 			// Check if this identifier has previously been defined as a variable
-			if (old_entry is not FunctionEntry function_entry) throw new SemanticAnalzyerException($"Function \"{declaration.Identifier.Value}\" has already been defined as a variable.", declaration.Identifier.Value);
-
+			if (old_entry is not FunctionEntry function_entry)
+				throw new SemanticAnalzyerException($"Function \"{declaration.Identifier.Value}\" has already been defined as a variable.", declaration.Identifier.Value);
+			
+			// Check that both definitions have the same return type
+			if (function_entry.ReturnType != declaration.ReturnType)
+				throw new SemanticAnalzyerException($"Function \"{declaration.Identifier.Value}\" has already been defined with return type {function_entry.ReturnType}, attemping to define again with return type {declaration.ReturnType}.", declaration.Identifier.Value);
+			
 			// Check that both definitions have the same number of parameters
 			if (function_entry.ParameterTypes.Count != declaration.ParameterIdentifiers.Count)
 				throw new SemanticAnalzyerException($"Function \"{declaration.Identifier.Value}\" has already been defined with {function_entry.ParameterTypes.Count} parameters, attemping to define again with {declaration.ParameterTypes.Count} parameters.", declaration.Identifier.Value);
@@ -70,15 +75,15 @@ public static class TypeChecker
 	{
 		// Check if the initialization expression is a constant
 		InitialValue initial_value;
-		if (declaration.Source is ParseNode.IntegerConstant integer)
+		if (declaration.Source is ParseNode.Constant constant)
 		{
-			initial_value = new InitialValue.Constant(PrimitiveType.Integer, integer.Value);
-		}
-		else if (declaration.Source is ParseNode.LongConstant @long)
-		{
-			// Handle case where variable is declared as an int but value is given as a long
-			if (declaration.VariableType == PrimitiveType.Integer) initial_value = new InitialValue.Constant(PrimitiveType.Integer, (int)(long)@long.Value);
-			else initial_value = new InitialValue.Constant(PrimitiveType.Long, @long.Value);
+			if (constant.ReturnType == PrimitiveType.Long) {
+				// Handle case where variable is declared as an int but value is given as a long
+				if (declaration.VariableType == PrimitiveType.Integer) initial_value = new InitialValue.Constant(PrimitiveType.Integer, int.CreateTruncating(constant.Value));
+				else initial_value = new InitialValue.Constant(PrimitiveType.Long, constant.Value);
+			}
+			else
+				initial_value = new InitialValue.Constant(constant.ReturnType, constant.Value);
 		}
 		else if (declaration.Source == null)
 		{
@@ -113,11 +118,7 @@ public static class TypeChecker
 
 		IdentifierAttributes attributes = new IdentifierAttributes.Static(initial_value, is_global);
 		symbol_table.AddVariable(declaration.Identifier.Value, attributes, declaration.VariableType);
-		// The book said don't typecheck static initializers but I'm going to do it anyway for now because that doesn't make sense
-		if (declaration.Source != null) {
-			CheckTypesInExpression(symbol_table, declaration.Source);
-			declaration.Source = ConvertExpressionTo(declaration.Source, declaration.VariableType);
-		}
+		// Do not typecheck static initializers because the source must be a constant value
 	}
 
 	static void CheckTypesInBlockScopeVariableDeclaration(SymbolTable symbol_table, ParseNode.VariableDeclaration declaration)
@@ -139,8 +140,7 @@ public static class TypeChecker
 		else if (declaration.StorageClass == StorageClass.Static)
 		{
 			InitialValue initial_value;
-			if (declaration.Source is ParseNode.IntegerConstant integer) initial_value = new InitialValue.Constant(PrimitiveType.Integer, integer.Value);
-			else if (declaration.Source is ParseNode.LongConstant @long) initial_value = new InitialValue.Constant(PrimitiveType.Long, @long.Value);
+			if (declaration.Source is ParseNode.Constant constant) initial_value = new InitialValue.Constant(constant.ReturnType, constant.Value);
 			else if (declaration.Source == null) initial_value = new InitialValue.Constant(PrimitiveType.Integer, 0);
 			else throw new SemanticAnalzyerException($"Static variable \"{declaration.Identifier.Value}\" cannot have a non-constant initializer.", declaration.Identifier.Value);
 			
@@ -353,17 +353,8 @@ public static class TypeChecker
 			}
 		}
 		
-		if (expression is ParseNode.Constant constant)
-		{
-			if (constant is ParseNode.IntegerConstant) {
-				constant.ReturnType = PrimitiveType.Integer;
-				return;
-			}
-			if (constant is ParseNode.LongConstant) {
-				constant.ReturnType = PrimitiveType.Long;
-				return;
-			}
-		}
+		// Return types for constants are set by the parser
+		if (expression is ParseNode.Constant constant) return;
 		
 		throw new SemanticAnalzyerException($"Unhandled expression type \"{expression}\"", expression.ToString());
 	}
@@ -371,7 +362,14 @@ public static class TypeChecker
 	static PrimitiveType GetCommonType(PrimitiveType a, PrimitiveType b)
 	{
 		if (a == b) return a;
-		return PrimitiveType.Long;
+		
+		if (a.GetSize() == b.GetSize())
+			if (a.IsSigned()) return b;
+		else return a;
+		
+		if (a.GetSize() > b.GetSize())
+			return a;
+		else return b;
 	}
 	
 	static ParseNode.Expression ConvertExpressionTo(ParseNode.Expression expression, PrimitiveType target_type)

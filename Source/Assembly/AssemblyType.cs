@@ -33,4 +33,14 @@ public static class AssemblyTypeExtensions
 			_ => throw new System.Exception(),
 		};
 	}
+	
+	public static string GetInitializer(this int size)
+	{
+		return size switch
+		{
+			4 => ".long",
+			8 => ".quad",
+			_ => throw new System.Exception(),
+		};
+	}
 }

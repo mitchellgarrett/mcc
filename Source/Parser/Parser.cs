@@ -360,12 +360,8 @@ public static partial class Parser
 	/// <returns></returns>
 	static ParseNode.ForInitialization ParseForInitialization(LinkedList<Token> tokens)
 	{
-		// TODO: Find a better way to handle multiple types
-		// If first token is 'int' or 'long' then this is a variable declaration
-		if (
-			Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Integer) ||
-			Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Long)
-		)
+		// If first token is a type then this is a variable declaration
+		if (Match(tokens.Peek(), TokenType.Keyword) && valid_type_specifiers.Contains((Syntax.Keyword)tokens.Peek().Value))
 		{
 			ParseNode.Declaration declaration = ParseDeclaration(tokens);
 			if (declaration is ParseNode.VariableDeclaration variable_declaration)
@@ -449,7 +445,6 @@ public static partial class Parser
 	/// <returns></returns>
 	static ParseNode.Expression ParseFactor(LinkedList<Token> tokens)
 	{
-		// TODO: Make this cleaner
 		// Parse constants
 		if (Match(tokens.Peek(), TokenType.IntegerConstant)) return ParseConstantExpression(tokens);
 		if (Match(tokens.Peek(), TokenType.LongConstant)) return ParseConstantExpression(tokens);
@@ -478,12 +473,12 @@ public static partial class Parser
 			tokens.Dequeue();
 			
 			// If the inside of the parentheses is a type, then this is a cast
-			// TODO: Make type parsing better plz
-			if (Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Integer) || Match(tokens.Peek(), TokenType.Keyword, Syntax.Keyword.Long))
+			if (Match(tokens.Peek(), TokenType.Keyword) && valid_type_specifiers.Contains((Syntax.Keyword)tokens.Peek().Value))
 			{
 				PrimitiveType type = ParseTypeSpecifier(tokens);
 				Expect(tokens.Dequeue(), TokenType.CloseParenthesis);
-				return new ParseNode.Cast(type, ParseExpression(tokens, 0));
+				// Expression precedence must be high when parsing casts because the cast has higher priority than binary operators
+				return new ParseNode.Cast(type, ParseExpression(tokens, Syntax.BinaryOperator.Multiplication.GetPrecedence() + 1));
 			}
 			
 			// Otherwise it is an expression wrapped in parentheses
@@ -554,8 +549,8 @@ public static partial class Parser
 			// Value must be smaller than the max long value
 			if (value > long.MaxValue) throw new ParserException($"Integer value: {token.Value} is too big to be represented as an 'int' or 'long'.", token);
 			
-			if (Match(token, TokenType.IntegerConstant) && value <= int.MaxValue) return new ParseNode.IntegerConstant((int)value);
-			return new ParseNode.LongConstant((long)value);
+			if (Match(token, TokenType.IntegerConstant) && value <= int.MaxValue) return new ParseNode.Constant(PrimitiveType.Integer, int.CreateTruncating(value));
+			return new ParseNode.Constant(PrimitiveType.Long, long.CreateTruncating(value));
 		}
 		
 		if (Match(token, TokenType.UnsignedIntegerConstant) || Match(token, TokenType.UnsignedLongConstant))
@@ -564,8 +559,8 @@ public static partial class Parser
 			// Value must be smaller than the max unsigned long value
 			if (value > ulong.MaxValue) throw new ParserException($"Integer value: {token.Value} is too big to be represented as a 'uint' or 'ulong'.", token);
 			
-			if (Match(token, TokenType.IntegerConstant) && value <= uint.MaxValue) return new ParseNode.UnsignedIntegerConstant((uint)value);
-			return new ParseNode.UnsignedLongConstant((ulong)value);
+			if (Match(token, TokenType.UnsignedIntegerConstant) && value <= uint.MaxValue) return new ParseNode.Constant(PrimitiveType.UnsignedInteger, uint.CreateTruncating(value));
+			return new ParseNode.Constant(PrimitiveType.UnsignedLong, ulong.CreateTruncating(value));
 		}
 		
 		throw new ParserException($"Invalid constant: {token.Value}", token);

@@ -24,7 +24,7 @@ public static class AssemblyGenerator {
 	static AssemblyNode.TopLevel GenerateTopLevelDefinition(IntermediateNode.TopLevel definition, SymbolTable symbol_table)
 	{
 		if (definition is IntermediateNode.Function function) return GenerateFunctionDefinition(function, symbol_table);
-		if (definition is IntermediateNode.StaticVariable static_variable) return GenerateStaticVariable(static_variable);
+		if (definition is IntermediateNode.StaticVariable static_variable) return GenerateStaticVariable(static_variable, symbol_table);
 		throw new Exception();
 	}
 	
@@ -71,9 +71,10 @@ public static class AssemblyGenerator {
 		return new AssemblyNode.Function(identifier, function.IsGlobal, parameters.ToArray(), instructions);
 	}
 
-	static AssemblyNode.StaticVariable GenerateStaticVariable(IntermediateNode.StaticVariable variable)
+	static AssemblyNode.StaticVariable GenerateStaticVariable(IntermediateNode.StaticVariable variable, SymbolTable symbol_table)
 	{
-		int alignment = variable.InitialValue.Type.ToAssemblyType().GetSize();
+		if (!symbol_table.TryGetSymbol(variable.Identifier, out SymbolTableEntry entry)) throw new Exception();
+		int alignment = entry.ReturnType.ToAssemblyType().GetSize();
 		return new AssemblyNode.StaticVariable(variable.Identifier, variable.IsGlobal, alignment, variable.InitialValue);
 	}
 
@@ -88,8 +89,9 @@ public static class AssemblyGenerator {
 		if (instruction is IntermediateNode.JumpIfNotZero jump_if_not_zero) GenerateJumpIfNotZeroInstruction(instructions, symbol_table, jump_if_not_zero);
 		if (instruction is IntermediateNode.Copy copy) GenerateCopyInstruction(instructions, symbol_table, copy);
 		if (instruction is IntermediateNode.Label label) GenerateLabel(instructions, label);
-		if (instruction is IntermediateNode.FunctionCall function_call) GenerateFunctionCall(instructions, function_call, symbol_table);
+		if (instruction is IntermediateNode.FunctionCall function_call) GenerateFunctionCall(instructions, symbol_table, function_call);
 		if (instruction is IntermediateNode.SignExtend sign_extend) GenerateSignExtend(instructions, sign_extend);
+		if (instruction is IntermediateNode.ZeroExtend zero_extend) GenerateZeroExtend(instructions, zero_extend);
 		if (instruction is IntermediateNode.Truncate truncate) GenerateTruncate(instructions, truncate);
 	}
 	
@@ -140,6 +142,8 @@ public static class AssemblyGenerator {
 
 	static void GenerateBinaryInstruction(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.BinaryInstruction instruction)
 	{
+		bool is_signed = instruction.LeftOperand.GetPrimitiveType(symbol_table).IsSigned();
+		
 		switch (instruction.Operator)
 		{
 			case Syntax.BinaryOperator.Addition:
@@ -157,19 +161,19 @@ public static class AssemblyGenerator {
 				return;
 
 			case Syntax.BinaryOperator.LogicalLess:
-				GenerateConditional(instructions, symbol_table, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, ConditionType.L);
+				GenerateConditional(instructions, symbol_table, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, is_signed ? ConditionType.L : ConditionType.B);
 				return;
 
 			case Syntax.BinaryOperator.LogicalGreater:
-				GenerateConditional(instructions, symbol_table, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, ConditionType.G);
+				GenerateConditional(instructions, symbol_table, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, is_signed ? ConditionType.G : ConditionType.A);
 				return;
 
 			case Syntax.BinaryOperator.LogicalLessEqual:
-				GenerateConditional(instructions, symbol_table, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, ConditionType.LE);
+				GenerateConditional(instructions, symbol_table, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, is_signed ? ConditionType.LE : ConditionType.BE);
 				return;
 
 			case Syntax.BinaryOperator.LogicalGreaterEqual:
-				GenerateConditional(instructions, symbol_table, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, ConditionType.GE);
+				GenerateConditional(instructions, symbol_table, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, is_signed ? ConditionType.GE : ConditionType.AE);
 				return;
 
 			case Syntax.BinaryOperator.LogicalEqual:
@@ -196,11 +200,19 @@ public static class AssemblyGenerator {
 	}
 	
 	static void GenerateIntegerDivision(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.BinaryInstruction instruction) {
+		if (instruction.LeftOperand.GetPrimitiveType(symbol_table).IsSigned())
+			GenerateSignedIntegerDivision(instructions, symbol_table, instruction);
+		else
+			GenerateUnsignedIntegerDivision(instructions, symbol_table, instruction);
+	}
+	
+	static void GenerateSignedIntegerDivision(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.BinaryInstruction instruction)
+	{
 		AssemblyNode.Operand lhs = GenerateOperand(instruction.LeftOperand);
 		AssemblyNode.Operand rhs = GenerateOperand(instruction.RightOperand);
 		AssemblyNode.Operand destination = GenerateOperand(instruction.Destination);
-		
 		var type = instruction.LeftOperand.ToAssemblyType(symbol_table);
+		
 		instructions.Add(
 			new AssemblyNode.MOV(
 				type,
@@ -227,13 +239,57 @@ public static class AssemblyGenerator {
 			)
 		);
 	}
-	
-	static void GenerateIntegerRemainder(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.BinaryInstruction instruction) {
+		
+	static void GenerateUnsignedIntegerDivision(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.BinaryInstruction instruction) 
+	{
 		AssemblyNode.Operand lhs = GenerateOperand(instruction.LeftOperand);
 		AssemblyNode.Operand rhs = GenerateOperand(instruction.RightOperand);
 		AssemblyNode.Operand destination = GenerateOperand(instruction.Destination);
-		
 		var type = instruction.LeftOperand.ToAssemblyType(symbol_table);
+		
+		instructions.Add(
+			new AssemblyNode.MOV(
+				type,
+				lhs, 
+				RegisterType.AX.ToOperand()
+			)
+		);
+		instructions.Add(
+			new AssemblyNode.MOV(
+				type,
+				0.ToAssemblyImmediate(), 
+				RegisterType.DX.ToOperand()
+			)
+		);
+		instructions.Add(
+			new AssemblyNode.DIV(
+				type,
+				rhs
+			)
+		);
+		instructions.Add(
+			new AssemblyNode.MOV(
+				type,
+				RegisterType.AX.ToOperand(), 
+				destination
+			)
+		);
+	}
+
+	
+	static void GenerateIntegerRemainder(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.BinaryInstruction instruction) {
+		if (instruction.LeftOperand.GetPrimitiveType(symbol_table).IsSigned())
+			GenerateSignedIntegerRemainder(instructions, symbol_table, instruction);
+		else
+			GenerateUnsignedIntegerRemainder(instructions, symbol_table, instruction);
+	}
+	
+	static void GenerateSignedIntegerRemainder(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.BinaryInstruction instruction) {
+		AssemblyNode.Operand lhs = GenerateOperand(instruction.LeftOperand);
+		AssemblyNode.Operand rhs = GenerateOperand(instruction.RightOperand);
+		AssemblyNode.Operand destination = GenerateOperand(instruction.Destination);
+		var type = instruction.LeftOperand.ToAssemblyType(symbol_table);
+		
 		instructions.Add(
 			new AssemblyNode.MOV(
 				type,
@@ -248,6 +304,41 @@ public static class AssemblyGenerator {
 		);
 		instructions.Add(
 			new AssemblyNode.IDIV(
+				type,
+				rhs
+			)
+		);
+		instructions.Add(
+			new AssemblyNode.MOV(
+				type, 
+				RegisterType.DX.ToOperand(), 
+				destination
+			)
+		);
+	}
+	
+	static void GenerateUnsignedIntegerRemainder(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.BinaryInstruction instruction) {
+		AssemblyNode.Operand lhs = GenerateOperand(instruction.LeftOperand);
+		AssemblyNode.Operand rhs = GenerateOperand(instruction.RightOperand);
+		AssemblyNode.Operand destination = GenerateOperand(instruction.Destination);
+		var type = instruction.LeftOperand.ToAssemblyType(symbol_table);
+		
+		instructions.Add(
+			new AssemblyNode.MOV(
+				type,
+				lhs, 
+				RegisterType.AX.ToOperand()
+			)
+		);
+		instructions.Add(
+			new AssemblyNode.MOV(
+				type,
+				0.ToAssemblyImmediate(),
+				RegisterType.DX.ToOperand()
+			)
+		);
+		instructions.Add(
+			new AssemblyNode.DIV(
 				type,
 				rhs
 			)
@@ -329,7 +420,7 @@ public static class AssemblyGenerator {
 		instructions.Add(new AssemblyNode.Label(instruction.Identifier));
 	}
 
-	static void GenerateFunctionCall(List<AssemblyNode.Instruction> instructions, IntermediateNode.FunctionCall function_call, SymbolTable symbol_table)
+	static void GenerateFunctionCall(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.FunctionCall function_call)
 	{
 		// Ensure stack is 16-byte aligned
 		int stack_padding = 0;
@@ -400,12 +491,23 @@ public static class AssemblyGenerator {
 			);
 	}
 	
+	static void GenerateZeroExtend(List<AssemblyNode.Instruction> instructions, IntermediateNode.ZeroExtend zero_extend)
+	{
+		instructions.Add(
+			new AssemblyNode.MOVZ(
+				GenerateOperand(zero_extend.Source),
+				GenerateOperand(zero_extend.Destination)
+				)
+			);
+	}
+	
 	static void GenerateTruncate(List<AssemblyNode.Instruction> instructions, IntermediateNode.Truncate truncate)
 	{
 		// Pre-truncate the int-to-long conversion
 		var source = GenerateOperand(truncate.Source);
 		if (source is AssemblyNode.Immediate immediate)
-			if (immediate.Value > int.MaxValue) source = ((int)(long)immediate.Value).ToAssemblyImmediate();
+			if (immediate.Value > uint.MaxValue) source = ((uint)(ulong)immediate.Value).ToAssemblyImmediate();
+			else if (immediate.Value > int.MaxValue) source = ((int)(long)immediate.Value).ToAssemblyImmediate();
 		
 		instructions.Add(
 			new AssemblyNode.MOV(
@@ -424,12 +526,7 @@ public static class AssemblyGenerator {
 	}
 	
 	static AssemblyNode.Immediate GenerateConstant(IntermediateNode.Constant constant) {
-		return constant.Type switch
-		{
-			PrimitiveType.Integer => new AssemblyNode.Immediate(constant.Value),
-			PrimitiveType.Long => new AssemblyNode.Immediate(constant.Value),
-			_ => throw new Exception(),
-		};
+		return new AssemblyNode.Immediate(constant.Value);
 	}
 	
 	static AssemblyNode.PseudoRegister GenerateVariable(IntermediateNode.Variable operand) {
@@ -438,7 +535,7 @@ public static class AssemblyGenerator {
 	
 	public static AssemblyType ToAssemblyType(this IntermediateNode.Operand operand, SymbolTable symbol_table)
 	{
-		if (operand is IntermediateNode.Constant constant) return constant.ToAssemblyType();
+		if (operand is IntermediateNode.Constant constant) return constant.GetPrimitiveType(symbol_table).ToAssemblyType();
 		if (operand is IntermediateNode.Variable variable)
 		{
 			if (symbol_table.TryGetSymbol(variable.Identifier, out SymbolTableEntry entry))
@@ -447,22 +544,14 @@ public static class AssemblyGenerator {
 		throw new Exception();
 	}
 	
-	public static AssemblyType ToAssemblyType(this IntermediateNode.Constant constant)
-	{
-		return constant.Type switch
-		{
-			PrimitiveType.Integer => AssemblyType.LongWord,
-			PrimitiveType.Long => AssemblyType.QuadWord,
-			_ => throw new Exception(),
-		};
-	}
-	
 	public static AssemblyType ToAssemblyType(this PrimitiveType type)
 	{
 		return type switch
 		{
 			PrimitiveType.Integer => AssemblyType.LongWord,
 			PrimitiveType.Long => AssemblyType.QuadWord,
+			PrimitiveType.UnsignedInteger => AssemblyType.LongWord,
+			PrimitiveType.UnsignedLong => AssemblyType.QuadWord,
 			_ => throw new Exception(),
 		};
 	}

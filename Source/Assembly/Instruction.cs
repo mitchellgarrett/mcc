@@ -44,6 +44,22 @@ public static partial class AssemblyNode
 			return $"MOVSX({Source}, {Destination})";
 		}
 	}
+	
+	public class MOVZ(Operand source, Operand destination) : Instruction
+	{
+		public Operand Source = source;
+		public Operand Destination = destination;
+
+		public override string Emit()
+		{
+			throw new System.Exception();
+		}
+
+		public override string ToString()
+		{
+			return $"MOVZ({Source}, {Destination})";
+		}
+	}
 
 	public class RET : Instruction
 	{
@@ -71,6 +87,22 @@ public static partial class AssemblyNode
 		public override string ToString()
 		{
 			return $"IDIV({Operand})";
+		}
+	}
+	
+	public class DIV(AssemblyType type, Operand operand) : Instruction
+	{
+		public AssemblyType Type = type;
+		public Operand Operand = operand;
+
+		public override string Emit()
+		{
+			return $"div{Type.GetSuffix()} {Operand.Emit(Type)}";
+		}
+
+		public override string ToString()
+		{
+			return $"DIV({Operand})";
 		}
 	}
 

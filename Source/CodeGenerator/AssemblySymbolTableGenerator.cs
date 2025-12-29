@@ -1,3 +1,4 @@
+using System;
 using FTG.Studios.MCC.Assembly;
 using FTG.Studios.MCC.SemanticAnalysis;
 
@@ -18,7 +19,6 @@ public static class AssemblySymbolTableGenerator
 	
 	static void ConvertVariableEntry(AssemblySymbolTable assembly_symbol_table, string identifier, VariableEntry entry)
 	{
-		// FIXME: this might be wrong, but it works so far
 		AssemblyType type = entry.ReturnType.ToAssemblyType();
 		bool is_static = entry.Attributes is IdentifierAttributes.Static;
 		assembly_symbol_table.AddObject(identifier, type, is_static);

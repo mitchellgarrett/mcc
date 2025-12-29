@@ -51,6 +51,11 @@ public static partial class AssemblyNode
 	{
 		return new Immediate(value);
 	}
+	
+	public static Immediate ToAssemblyImmediate(this uint value)
+	{
+		return new Immediate(value);
+	}
 
 	public class PseudoRegister(string identifier) : Operand
 	{

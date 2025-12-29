@@ -1,4 +1,6 @@
+using System;
 using System.IO;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using FTG.Studios.MCC.Assembly;
 
@@ -71,7 +73,16 @@ public static class CodeEmitter
 		
 		file.WriteLine($"{identifier}:");
 		
-		if (is_zero) file.WriteLine($".zero {variable.InitialValue.Type.ToAssemblyType().GetSize()}");
-		else file.WriteLine($"{variable.InitialValue.Type.ToAssemblyType().GetInitializer()} {variable.InitialValue.Value}");
+		if (is_zero) file.WriteLine($".zero {variable.Alignment}");
+		else {
+			BigInteger value = variable.InitialValue.Value;
+			value = variable.Alignment switch
+			{
+				4 => value > uint.MaxValue ? uint.CreateTruncating(value) : value,
+				8 => value > ulong.MaxValue ? ulong.CreateTruncating(value) : value,
+				_ => throw new Exception(),
+			};
+			file.WriteLine($"{variable.Alignment.GetInitializer()} {value}");
+		}
 	}
 }

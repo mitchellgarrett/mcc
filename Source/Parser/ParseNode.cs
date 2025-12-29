@@ -44,7 +44,10 @@ public static class ParseNode {
 		public readonly Block Body = body;
 
 		public override string ToString() {
-			return $"FunctionDeclaration(\nIdentifier=\"{Identifier}\",\nReturnType={ReturnType},\nStorage={StorageClass},\n {string.Join(", ", ParameterIdentifiers)}\nBody(\n{Body}\n)".Replace("\n", "\n ") + "\n)";
+			string parameter_output = string.Empty;
+			for (int i = 0; i < ParameterIdentifiers.Count; i++)
+				parameter_output += $"({ParameterTypes[i]}, {ParameterIdentifiers[i]}{(i < ParameterIdentifiers.Count - 1 ? ", " : "")})";
+			return $"FunctionDeclaration(\nIdentifier=\"{Identifier}\",\nReturnType={ReturnType},\nStorage={StorageClass},\n {parameter_output}\nBody(\n{Body}\n)".Replace("\n", "\n ") + "\n)";
 		}
 	}
 	
@@ -188,38 +191,18 @@ public static class ParseNode {
 
 	public class Factor : Expression { }
 	
-	public class Constant(BigInteger value) : Factor
+	public class Constant : Factor
 	{
-		public readonly BigInteger Value = value;
-	}
-
-	public class IntegerConstant(BigInteger value) : Constant(value)
-	{
-		public override string ToString()
+		public readonly BigInteger Value;
+		
+		public Constant(PrimitiveType type, BigInteger value)
 		{
-			return $"IntegerConstant({Value})".Replace("\n", "\n ");
+			ReturnType = type;
+			Value = value;
 		}
-	}
-	
-	public class LongConstant(BigInteger value) : Constant(value)
-	{
+		
 		public override string ToString() {
-			return $"UnsignedLongConstant({Value})".Replace("\n", "\n ");
-		}
-	}
-	
-	public class UnsignedIntegerConstant(BigInteger value) : Constant(value)
-	{
-		public override string ToString()
-		{
-			return $"IntegerConstant({Value})".Replace("\n", "\n ");
-		}
-	}
-	
-	public class UnsignedLongConstant(BigInteger value) : Constant(value)
-	{
-		public override string ToString() {
-			return $"UnsignedLongConstant({Value})".Replace("\n", "\n ");
+			return $"Constant({ReturnType}, {Value})";
 		}
 	}
 	
@@ -227,7 +210,7 @@ public static class ParseNode {
 		public readonly Identifier Identifier = identifier;
 
 		public override string ToString() {
-			return $"Variable({Identifier})";
+			return $"Variable({ReturnType}, {Identifier})";
 		}
 	}
 	

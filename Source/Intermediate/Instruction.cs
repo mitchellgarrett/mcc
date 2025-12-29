@@ -28,6 +28,17 @@ public static partial class IntermediateNode
 		}
 	}
 	
+	public class ZeroExtend(Operand source, Operand destination) : Instruction
+	{
+		public readonly Operand Source = source;
+		public readonly Operand Destination = destination;
+
+		public override string ToString()
+		{
+			return $"ZeroExtend({Source}, {Destination})";
+		}
+	}
+	
 	public class Truncate(Operand source, Operand destination) : Instruction
 	{
 		public readonly Operand Source = source;

@@ -47,9 +47,11 @@ public static class VariableAssigner
 		{
 			if (instruction is AssemblyNode.MOV mov) AssignVariablesMOV(mov, symbol_table);
 			if (instruction is AssemblyNode.MOVSX movsx) AssignVariablesMOVSX(movsx, symbol_table);
+			if (instruction is AssemblyNode.MOVZ movz) AssignVariablesMOVZ(movz, symbol_table);
 			if (instruction is AssemblyNode.CMP cmp) AssignVariablesCMP(cmp, symbol_table);
 			if (instruction is AssemblyNode.SETCC setcc) AssignVariablesSET(setcc, symbol_table);
 			if (instruction is AssemblyNode.IDIV idiv) AssignVariablesIDIV(idiv, symbol_table);
+			if (instruction is AssemblyNode.DIV div) AssignVariablesDIV(div, symbol_table);
 			if (instruction is AssemblyNode.Unary unary) AssignVariablesUnaryInstruction(unary, symbol_table);
 			if (instruction is AssemblyNode.Binary binary) AssignVariablesBinaryInstruction(binary, symbol_table);
 			if (instruction is AssemblyNode.Push push) AssignVariablesPushInstruction(push, symbol_table);
@@ -93,6 +95,16 @@ public static class VariableAssigner
 		}
 	}
 	
+	static void AssignVariablesMOVZ(AssemblyNode.MOVZ instruction, AssemblySymbolTable symbol_table) {
+		if (instruction.Source is AssemblyNode.PseudoRegister source) {
+			instruction.Source = GetMemoryAccess(source.Identifier, symbol_table);
+		}
+		
+		if (instruction.Destination is AssemblyNode.PseudoRegister destination) {
+			instruction.Destination = GetMemoryAccess(destination.Identifier, symbol_table);
+		}
+	}
+	
 	static void AssignVariablesCMP(AssemblyNode.CMP instruction, AssemblySymbolTable symbol_table) {
 		if (instruction.LeftOperand is AssemblyNode.PseudoRegister left_operand) {
 			instruction.LeftOperand = GetMemoryAccess(left_operand.Identifier, symbol_table);
@@ -114,12 +126,15 @@ public static class VariableAssigner
 			instruction.Operand = GetMemoryAccess(operand.Identifier, symbol_table);
 	}
 	
+	static void AssignVariablesDIV(AssemblyNode.DIV instruction, AssemblySymbolTable symbol_table) {
+		if (instruction.Operand is AssemblyNode.PseudoRegister operand)
+			instruction.Operand = GetMemoryAccess(operand.Identifier, symbol_table);
+	}
+	
 	static void AssignVariablesUnaryInstruction(AssemblyNode.Unary instruction, AssemblySymbolTable symbol_table)
 	{
 		if (instruction.Operand is AssemblyNode.PseudoRegister variable)
-		{
 			instruction.Operand = GetMemoryAccess(variable.Identifier, symbol_table);
-		}
 	}
 	
 	static void AssignVariablesBinaryInstruction(AssemblyNode.Binary instruction, AssemblySymbolTable symbol_table) {

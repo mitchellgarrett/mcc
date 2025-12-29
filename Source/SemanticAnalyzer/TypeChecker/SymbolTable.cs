@@ -30,7 +30,12 @@ public abstract class InitialValue
 	public class Constant(PrimitiveType type, BigInteger value) : InitialValue
 	{
 		public readonly PrimitiveType Type = type;
-		public readonly BigInteger Value = value;
+		public BigInteger Value = value;
+
+		public override string ToString()
+		{
+			return $"Constant({Type}, {Value})";
+		}
 	}
 }
 
