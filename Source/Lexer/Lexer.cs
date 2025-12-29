@@ -154,27 +154,27 @@ public static class Lexer
 		
 		// Check if keyword
 		for (int index = 0; index < Syntax.keywords.Length; index++)
-		{
 			if (lexeme == Syntax.keywords[index]) return new Token(current_line, TokenType.Keyword, (Syntax.Keyword)index);
-		}
 
 		// Check if identifier
 		if (Regex.IsMatch(lexeme, Syntax.identifier))
-		{
 			return new Token(current_line, TokenType.Identifier, lexeme);
-		}
 
 		// Check if integer literal
 		if (Regex.IsMatch(lexeme, Syntax.integer_literal))
-		{
 			return new Token(current_line, TokenType.IntegerConstant, BigInteger.Parse(lexeme));
-		}
 		
 		// Check if long literal
 		if (Regex.IsMatch(lexeme, Syntax.long_literal))
-		{
 			return new Token(current_line, TokenType.LongConstant, BigInteger.Parse(lexeme.TrimEnd('l', 'L')));
-		}
+		
+		// Check if unsigned integer literal
+		if (Regex.IsMatch(lexeme, Syntax.unsigned_integer_literal))
+			return new Token(current_line, TokenType.UnsignedIntegerConstant, BigInteger.Parse(lexeme.TrimEnd('u', 'U')));
+		
+		// Check if unsigned long literal
+		if (Regex.IsMatch(lexeme, Syntax.unsigned_long_literal))
+			return new Token(current_line, TokenType.UnsignedLongConstant, BigInteger.Parse(lexeme.TrimEnd('l', 'L', 'u', 'U')));
 
 		// At this point we know the lexeme is invalid since it wasn't a valid identifier or constant
 		throw new LexerException($"Invalid lexeme: \'{lexeme}\'", lexeme);

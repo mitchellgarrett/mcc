@@ -426,8 +426,8 @@ public static class AssemblyGenerator {
 	static AssemblyNode.Immediate GenerateConstant(IntermediateNode.Constant constant) {
 		return constant.Type switch
 		{
-			ParseNode.PrimitiveType.Integer => new AssemblyNode.Immediate(constant.Value),
-			ParseNode.PrimitiveType.Long => new AssemblyNode.Immediate(constant.Value),
+			PrimitiveType.Integer => new AssemblyNode.Immediate(constant.Value),
+			PrimitiveType.Long => new AssemblyNode.Immediate(constant.Value),
 			_ => throw new Exception(),
 		};
 	}
@@ -451,18 +451,18 @@ public static class AssemblyGenerator {
 	{
 		return constant.Type switch
 		{
-			ParseNode.PrimitiveType.Integer => AssemblyType.LongWord,
-			ParseNode.PrimitiveType.Long => AssemblyType.QuadWord,
+			PrimitiveType.Integer => AssemblyType.LongWord,
+			PrimitiveType.Long => AssemblyType.QuadWord,
 			_ => throw new Exception(),
 		};
 	}
 	
-	public static AssemblyType ToAssemblyType(this ParseNode.PrimitiveType type)
+	public static AssemblyType ToAssemblyType(this PrimitiveType type)
 	{
 		return type switch
 		{
-			ParseNode.PrimitiveType.Integer => AssemblyType.LongWord,
-			ParseNode.PrimitiveType.Long => AssemblyType.QuadWord,
+			PrimitiveType.Integer => AssemblyType.LongWord,
+			PrimitiveType.Long => AssemblyType.QuadWord,
 			_ => throw new Exception(),
 		};
 	}

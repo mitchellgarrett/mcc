@@ -55,13 +55,13 @@ public static class IdentifierResolver
 		{
 			if (old_entry.FromCurrentScope)
 			{
-				if (!old_entry.HasLinkage || variable_declaration.StorageClass != ParseNode.StorageClass.Extern)
+				if (!old_entry.HasLinkage || variable_declaration.StorageClass != StorageClass.Extern)
 					throw new SemanticAnalzyerException($"Conflicting declarations for variable \"{variable_declaration.Identifier.Value}\".", variable_declaration.Identifier.Value);
 			}
 		}
 		
 		// If a variable is extern, its identifier is not renamed
-		if (variable_declaration.StorageClass == ParseNode.StorageClass.Extern)
+		if (variable_declaration.StorageClass == StorageClass.Extern)
 		{
 			identifier_map.InsertUniqueIdentifier(variable_declaration.Identifier.Value, true, SymbolTable.SymbolClass.Variable);
 			return variable_declaration;

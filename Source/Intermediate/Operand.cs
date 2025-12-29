@@ -11,9 +11,9 @@ public static partial class IntermediateNode
 		public abstract string ToCommentString();
 	}
 
-	public class Constant(ParseNode.PrimitiveType type, BigInteger value) : Operand
+	public class Constant(PrimitiveType type, BigInteger value) : Operand
 	{
-		public readonly ParseNode.PrimitiveType Type = type;
+		public readonly PrimitiveType Type = type;
 		public readonly BigInteger Value = value;
 
 		public override string ToCommentString()
@@ -29,12 +29,12 @@ public static partial class IntermediateNode
 
 	public static Constant ToIntermediateConstant(this int value)
 	{
-		return new Constant(ParseNode.PrimitiveType.Integer, value);
+		return new Constant(PrimitiveType.Integer, value);
 	}
 	
 	public static Constant ToIntermediateConstant(this long value)
 	{
-		return new Constant(ParseNode.PrimitiveType.Long, value);
+		return new Constant(PrimitiveType.Long, value);
 	}
 
 	public class Variable(string identifier) : Operand

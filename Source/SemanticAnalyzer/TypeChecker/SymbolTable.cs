@@ -27,24 +27,24 @@ public abstract class InitialValue
 	public class None : InitialValue { }
 	public class Tentative : InitialValue { }
 	
-	public class Constant(ParseNode.PrimitiveType type, BigInteger value) : InitialValue
+	public class Constant(PrimitiveType type, BigInteger value) : InitialValue
 	{
-		public readonly ParseNode.PrimitiveType Type = type;
+		public readonly PrimitiveType Type = type;
 		public readonly BigInteger Value = value;
 	}
 }
 
-public abstract class SymbolTableEntry(IdentifierAttributes attributes, ParseNode.PrimitiveType return_type)
+public abstract class SymbolTableEntry(IdentifierAttributes attributes, PrimitiveType return_type)
 {
 	public IdentifierAttributes Attributes = attributes;
-	public ParseNode.PrimitiveType ReturnType = return_type;
+	public PrimitiveType ReturnType = return_type;
 }
 
-public class VariableEntry(IdentifierAttributes attributes, ParseNode.PrimitiveType return_type) : SymbolTableEntry(attributes, return_type);
+public class VariableEntry(IdentifierAttributes attributes, PrimitiveType return_type) : SymbolTableEntry(attributes, return_type);
 
-public class FunctionEntry(IdentifierAttributes attributes, ParseNode.PrimitiveType return_type, List<ParseNode.PrimitiveType> parameter_types) : SymbolTableEntry(attributes, return_type)
+public class FunctionEntry(IdentifierAttributes attributes, PrimitiveType return_type, List<PrimitiveType> parameter_types) : SymbolTableEntry(attributes, return_type)
 {
-	public List<ParseNode.PrimitiveType> ParameterTypes = parameter_types;
+	public List<PrimitiveType> ParameterTypes = parameter_types;
 }
 
 public class SymbolTable : IEnumerable<(string, SymbolTableEntry)>
@@ -53,12 +53,12 @@ public class SymbolTable : IEnumerable<(string, SymbolTableEntry)>
 
 	readonly Dictionary<string, SymbolTableEntry> symbols = [];
 
-	public void AddVariable(string identifier, IdentifierAttributes attributes, ParseNode.PrimitiveType type)
+	public void AddVariable(string identifier, IdentifierAttributes attributes, PrimitiveType type)
 	{
 		symbols[identifier] = new VariableEntry(attributes, type);
 	}
 
-	public void AddFunction(string identifier, IdentifierAttributes attributes, ParseNode.PrimitiveType return_type, List<ParseNode.PrimitiveType> parameter_types)
+	public void AddFunction(string identifier, IdentifierAttributes attributes, PrimitiveType return_type, List<PrimitiveType> parameter_types)
 	{
 		symbols[identifier] = new FunctionEntry(attributes, return_type, parameter_types);
 	}

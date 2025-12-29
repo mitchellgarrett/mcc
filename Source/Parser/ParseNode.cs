@@ -20,10 +20,6 @@ public static class ParseNode {
 	
 	public abstract class Declaration : BlockItem;
 	
-	public enum StorageClass { None, Static, Extern }
-	
-	public enum PrimitiveType { Integer, Long };
-	
 	public class VariableDeclaration(Identifier identifier, PrimitiveType type, StorageClass storage_class, Expression source) : Declaration, ForInitialization
 	{
 		public readonly Identifier Identifier = identifier;
@@ -208,7 +204,22 @@ public static class ParseNode {
 	public class LongConstant(BigInteger value) : Constant(value)
 	{
 		public override string ToString() {
-			return $"LongConstant({Value})".Replace("\n", "\n ");
+			return $"UnsignedLongConstant({Value})".Replace("\n", "\n ");
+		}
+	}
+	
+	public class UnsignedIntegerConstant(BigInteger value) : Constant(value)
+	{
+		public override string ToString()
+		{
+			return $"IntegerConstant({Value})".Replace("\n", "\n ");
+		}
+	}
+	
+	public class UnsignedLongConstant(BigInteger value) : Constant(value)
+	{
+		public override string ToString() {
+			return $"UnsignedLongConstant({Value})".Replace("\n", "\n ");
 		}
 	}
 	

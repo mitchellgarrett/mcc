@@ -10,7 +10,7 @@ namespace FTG.Studios.MCC.Intermediate;
 public static class IntermediateGenerator {
 	
 	static int next_temporary_variable_index;
-	static IntermediateNode.Variable NextTemporaryVariable(SymbolTable symbol_table, ParseNode.PrimitiveType type) {
+	static IntermediateNode.Variable NextTemporaryVariable(SymbolTable symbol_table, PrimitiveType type) {
 		IntermediateNode.Variable variable = new($"tmp.{next_temporary_variable_index++}");
 		symbol_table.AddVariable(variable.Identifier, new IdentifierAttributes.Local(), type);
 		return variable;
@@ -55,8 +55,8 @@ public static class IntermediateGenerator {
 				if (static_attributes.InitialValue is InitialValue.Constant constant)
 					static_variables.Add(new IntermediateNode.StaticVariable(identifier, static_attributes.IsGlobal, constant));
 				else if (static_attributes.InitialValue is InitialValue.Tentative) {
-					InitialValue.Constant initial_value = new InitialValue.Constant(ParseNode.PrimitiveType.Integer, 0);
-					if (entry.ReturnType == ParseNode.PrimitiveType.Long) initial_value = new InitialValue.Constant(ParseNode.PrimitiveType.Long, 0L);
+					InitialValue.Constant initial_value = new InitialValue.Constant(PrimitiveType.Integer, 0);
+					if (entry.ReturnType == PrimitiveType.Long) initial_value = new InitialValue.Constant(PrimitiveType.Long, 0L);
 					static_variables.Add(new IntermediateNode.StaticVariable(identifier, static_attributes.IsGlobal, initial_value));
 				}
 				// Ignore variables with no initializer
@@ -104,7 +104,7 @@ public static class IntermediateGenerator {
 	static void GenerateVariableDeclaration(List<IntermediateNode.Instruction> instructions, SymbolTable symbol_table, ParseNode.VariableDeclaration declaration)
 	{
 		// Do not generate initializers for static variables
-		if (declaration.StorageClass == ParseNode.StorageClass.Static) return;
+		if (declaration.StorageClass == StorageClass.Static) return;
 		
 		// Generate declaration initializer, if it exists
 		IntermediateNode.Operand source = null;
@@ -300,7 +300,7 @@ public static class IntermediateGenerator {
 		instructions.Add(new IntermediateNode.Comment($"({cast.ReturnType}) {cast.Expression}"));
 		
 		// If casting to a long, sign extend the original int value
-		if (cast.ReturnType == ParseNode.PrimitiveType.Long)
+		if (cast.ReturnType == PrimitiveType.Long)
 			instructions.Add(new IntermediateNode.SignExtend(value, destination));
 		// If casting to an int, truncate the original long value
 		else instructions.Add(new IntermediateNode.Truncate(value, destination));
@@ -396,7 +396,7 @@ public static class IntermediateGenerator {
 			instructions.Add(new IntermediateNode.JumpIfZero(false_label.Identifier, rhs));
 
 			// If lhs == rhs == 1, set result = 1, jump to end
-			IntermediateNode.Variable destination = NextTemporaryVariable(symbol_table, ParseNode.PrimitiveType.Integer);
+			IntermediateNode.Variable destination = NextTemporaryVariable(symbol_table, PrimitiveType.Integer);
 			IntermediateNode.Label end_label = NextTemporaryLabel;
 			instructions.Add(new IntermediateNode.Copy(1.ToIntermediateConstant(), destination));
 			instructions.Add(new IntermediateNode.Jump(end_label.Identifier));
@@ -424,7 +424,7 @@ public static class IntermediateGenerator {
 		instructions.Add(new IntermediateNode.JumpIfNotZero(true_label.Identifier, rhs));
 		
 		// If lhs == rhs == 0, set result = 0, jump to end
-		IntermediateNode.Variable destination = NextTemporaryVariable(symbol_table, ParseNode.PrimitiveType.Integer);
+		IntermediateNode.Variable destination = NextTemporaryVariable(symbol_table, PrimitiveType.Integer);
 		IntermediateNode.Label end_label = NextTemporaryLabel;
 		instructions.Add(new IntermediateNode.Copy(0.ToIntermediateConstant(), destination));
 		instructions.Add(new IntermediateNode.Jump(end_label.Identifier));
