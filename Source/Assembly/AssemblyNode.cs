@@ -42,10 +42,22 @@ public static partial class AssemblyNode {
 		public readonly bool IsGlobal = is_global;
 		public readonly int Alignment = alignment;
 		public readonly InitialValue.Constant InitialValue = initial_value;
+		
+		public override string ToString()
+		{
+			return $"StaticVariable(\"{Identifier}\", Global={IsGlobal}, Alignment={Alignment}, InitialValue={InitialValue})";
+		}
+	}
+	
+	public class StaticConstant(string identifier, int alignment, InitialValue.Constant initial_value) : TopLevel
+	{
+		public readonly string Identifier = identifier;
+		public readonly int Alignment = alignment;
+		public readonly InitialValue.Constant InitialValue = initial_value;
 
 		public override string ToString()
 		{
-			return $"StaticVariable(\"{Identifier}\", Global={IsGlobal}, Alignment={Alignment}, InitialValue={InitialValue.Value})";
+			return $"StaticConstant(\"{Identifier}\", Alignment={Alignment}, InitialValue={InitialValue})";
 		}
 	}
 	

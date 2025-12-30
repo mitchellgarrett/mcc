@@ -75,15 +75,20 @@ public static class TypeChecker
 	{
 		// Check if the initialization expression is a constant
 		InitialValue initial_value;
-		if (declaration.Source is ParseNode.Constant constant)
+		// TODO: This shoould convert to the destination type
+		if (declaration.Source is ParseNode.IntegerConstant integer)
 		{
-			if (constant.ReturnType == PrimitiveType.Long) {
+			if (integer.ReturnType == PrimitiveType.Long) {
 				// Handle case where variable is declared as an int but value is given as a long
-				if (declaration.VariableType == PrimitiveType.Integer) initial_value = new InitialValue.Constant(PrimitiveType.Integer, int.CreateTruncating(constant.Value));
-				else initial_value = new InitialValue.Constant(PrimitiveType.Long, constant.Value);
+				if (declaration.VariableType == PrimitiveType.Integer) initial_value = new InitialValue.IntegerConstant(PrimitiveType.Integer, int.CreateTruncating(integer.Value));
+				else initial_value = new InitialValue.IntegerConstant(PrimitiveType.Long, integer.Value);
 			}
 			else
-				initial_value = new InitialValue.Constant(constant.ReturnType, constant.Value);
+				initial_value = new InitialValue.IntegerConstant(integer.ReturnType, integer.Value);
+		}
+		else if (declaration.Source is ParseNode.FloatingPointConstant @double)
+		{
+			initial_value = new InitialValue.FloatingPointConstant(@double.Value);
 		}
 		else if (declaration.Source == null)
 		{
@@ -102,15 +107,15 @@ public static class TypeChecker
 			else if ((old_entry.Attributes as IdentifierAttributes.Static).IsGlobal != is_global)
 				throw new SemanticAnalzyerException($"Variable \"{declaration.Identifier.Value}\" has conflicting linkage.", declaration.Identifier.Value);
 
-			if ((old_entry.Attributes as IdentifierAttributes.Static).InitialValue is InitialValue.Constant)
+			if ((old_entry.Attributes as IdentifierAttributes.Static).InitialValue is InitialValue.IntegerConstant)
 			{
-				if (initial_value is InitialValue.Constant) throw new SemanticAnalzyerException($"Conflicting definitons for variable \"{declaration.Identifier.Value}\".", declaration.Identifier.Value);
+				if (initial_value is InitialValue.IntegerConstant) throw new SemanticAnalzyerException($"Conflicting definitons for variable \"{declaration.Identifier.Value}\".", declaration.Identifier.Value);
 				else
 				{
 					initial_value = (old_entry.Attributes as IdentifierAttributes.Static).InitialValue;
 				}
 			}
-			else if (initial_value is not InitialValue.Constant && (old_entry.Attributes as IdentifierAttributes.Static).InitialValue is InitialValue.Tentative)
+			else if (initial_value is not InitialValue.IntegerConstant && (old_entry.Attributes as IdentifierAttributes.Static).InitialValue is InitialValue.Tentative)
 			{
 				initial_value = new InitialValue.Tentative();
 			}
@@ -130,7 +135,6 @@ public static class TypeChecker
 			{
 				if (old_entry is not VariableEntry variable_entry) throw new SemanticAnalzyerException($"Variable \"{declaration.Identifier.Value}\" already defined as a function.", declaration.Identifier.Value);
 				if (variable_entry.ReturnType != declaration.VariableType) throw new SemanticAnalzyerException($"Attempting to define variable \"{declaration.Identifier.Value}\" with type \"{declaration.VariableType}\", already defined with type \"{variable_entry.ReturnType}\".", declaration.Identifier.Value);
-
 			}
 			else
 			{
@@ -140,8 +144,10 @@ public static class TypeChecker
 		else if (declaration.StorageClass == StorageClass.Static)
 		{
 			InitialValue initial_value;
-			if (declaration.Source is ParseNode.Constant constant) initial_value = new InitialValue.Constant(constant.ReturnType, constant.Value);
-			else if (declaration.Source == null) initial_value = new InitialValue.Constant(PrimitiveType.Integer, 0);
+			// TODO: This should convert to the destination type
+			if (declaration.Source is ParseNode.IntegerConstant integer) initial_value = new InitialValue.IntegerConstant(integer.ReturnType, integer.Value);
+			else if (declaration.Source is ParseNode.FloatingPointConstant @double) initial_value = new InitialValue.FloatingPointConstant(@double.Value);
+			else if (declaration.Source == null) initial_value = new InitialValue.IntegerConstant(PrimitiveType.Integer, 0);
 			else throw new SemanticAnalzyerException($"Static variable \"{declaration.Identifier.Value}\" cannot have a non-constant initializer.", declaration.Identifier.Value);
 			
 			symbol_table.AddVariable(declaration.Identifier.Value, new IdentifierAttributes.Static(initial_value, false), declaration.VariableType);
@@ -240,128 +246,175 @@ public static class TypeChecker
 
 	static void CheckTypesInExpression(SymbolTable symbol_table, ParseNode.Expression expression)
 	{
-		// TODO: Refactor these into separate functions
 		if (expression is ParseNode.Variable variable)
 		{
-			if (!symbol_table.TryGetSymbol(variable.Identifier.Value, out SymbolTableEntry entry))
-				throw new SemanticAnalzyerException($"Variable \"{variable.Identifier.Value}\" does not exist.", variable.Identifier.Value);
-			
-			if (entry is not VariableEntry) throw new SemanticAnalzyerException($"Identifier \"{variable.Identifier.Value}\" is not a variable.", variable.Identifier.Value);
-			
-			variable.ReturnType = entry.ReturnType;
+			CheckTypesInVariable(symbol_table, variable);
 			return;
 		}
 		
 		if (expression is ParseNode.Cast cast)
 		{
-			// Casts cannot be applied to assignments
-			if (cast.Expression is ParseNode.Assignment)
-				throw new SemanticAnalzyerException($"Cast \"{cast}\" cannot be applied to an assignment.", "");
-			
-			CheckTypesInExpression(symbol_table, cast.Expression);
-			// The return type of the cast itself is set by the parser
+			CheckTypesInCast(symbol_table, cast);
 			return;
 		}
 
 		if (expression is ParseNode.FunctionCall function_call)
 		{
-			if (!symbol_table.TryGetSymbol(function_call.Identifier.Value, out SymbolTableEntry entry))
-				throw new SemanticAnalzyerException($"Function \"{function_call.Identifier.Value}\" does not exist.", function_call.Identifier.Value);
-
-			if (entry is not FunctionEntry function_entry) throw new SemanticAnalzyerException($"Variable \"{function_call.Identifier.Value}\" is being used like a function.", function_call.Identifier.Value);
-
-			// TODO: Eventually this will actually check that the arguments match
-			if (function_entry.ParameterTypes.Count != function_call.Arguments.Count) throw new SemanticAnalzyerException($"Function \"{function_call.Identifier.Value}\" expects {function_entry.ParameterTypes.Count} arguments, got {function_call.Arguments.Count}.", function_call.Identifier.Value);
-			
-			for (int i = 0; i < function_call.Arguments.Count; i++)
-			{
-				CheckTypesInExpression(symbol_table, function_call.Arguments[i]);
-				function_call.Arguments[i] = ConvertExpressionTo(function_call.Arguments[i], function_entry.ParameterTypes[i]);
-			}
-				
-			function_call.ReturnType = entry.ReturnType;
+			CheckTypesInFunctionCall(symbol_table, function_call);
 			return;
 		}
 
 		if (expression is ParseNode.Assignment assignment)
 		{
-			CheckTypesInExpression(symbol_table, assignment.Destination);
-			CheckTypesInExpression(symbol_table, assignment.Source);
-			assignment.Source = ConvertExpressionTo(assignment.Source, assignment.Destination.ReturnType);
-			assignment.ReturnType = assignment.Destination.ReturnType;
+			CheckTypesInAssignment(symbol_table, assignment);
 			return;
 		}
 
 		if (expression is ParseNode.Conditional conditional)
 		{
-			CheckTypesInExpression(symbol_table, conditional.Condition);
-			CheckTypesInExpression(symbol_table, conditional.Then);
-			CheckTypesInExpression(symbol_table, conditional.Else);
-			
-			PrimitiveType common_type = GetCommonType(conditional.Then.ReturnType, conditional.Else.ReturnType);
-			
-			conditional.Then = ConvertExpressionTo(conditional.Then, common_type);
-			conditional.Else = ConvertExpressionTo(conditional.Else, common_type);
-			conditional.ReturnType = common_type;
+			CheckTypesInConditionalExpression(symbol_table, conditional);
 			return;
 		}
 
 		if (expression is ParseNode.BinaryExpression binary)
 		{
-			CheckTypesInExpression(symbol_table, binary.LeftExpression);
-			CheckTypesInExpression(symbol_table, binary.RightExpression);
-			
-			switch (binary.Operator)
-			{
-				case Lexer.Syntax.BinaryOperator.LogicalAnd:
-				case Lexer.Syntax.BinaryOperator.LogicalOr:
-					binary.ReturnType = PrimitiveType.Integer;
-					return;
-			}
-
-			PrimitiveType common_type = GetCommonType(binary.LeftExpression.ReturnType, binary.RightExpression.ReturnType);
-			
-			binary.LeftExpression = ConvertExpressionTo(binary.LeftExpression, common_type);
-			binary.RightExpression = ConvertExpressionTo(binary.RightExpression, common_type);
-			
-			switch (binary.Operator)
-			{
-				case Lexer.Syntax.BinaryOperator.Addition:
-				case Lexer.Syntax.BinaryOperator.Subtraction:
-				case Lexer.Syntax.BinaryOperator.Multiplication:
-				case Lexer.Syntax.BinaryOperator.Division:
-				case Lexer.Syntax.BinaryOperator.Remainder:
-					binary.ReturnType = common_type;
-					return;
-				default:
-					binary.ReturnType = PrimitiveType.Integer;
-					return;
-			}
+			CheckTypesInBinaryExpression(symbol_table, binary);
+			return;
 		}
 		
 		if (expression is ParseNode.UnaryExpression unary)
 		{
-			CheckTypesInExpression(symbol_table, unary.Expression);
-			switch (unary.Operator)
-			{
-				case Lexer.Syntax.UnaryOperator.Not:
-					unary.ReturnType = PrimitiveType.Integer;
-					return;
-				default:
-					unary.ReturnType = unary.Expression.ReturnType;
-					return;
-			}
+			CheckTypesInUnaryExpression(symbol_table, unary);
+			return;
 		}
 		
 		// Return types for constants are set by the parser
-		if (expression is ParseNode.Constant constant) return;
+		if (expression is ParseNode.IntegerConstant) return;
 		
 		throw new SemanticAnalzyerException($"Unhandled expression type \"{expression}\"", expression.ToString());
+	}
+	
+	static void CheckTypesInVariable(SymbolTable symbol_table, ParseNode.Variable variable)
+	{
+		if (!symbol_table.TryGetSymbol(variable.Identifier.Value, out SymbolTableEntry entry))
+			throw new SemanticAnalzyerException($"Variable \"{variable.Identifier.Value}\" does not exist.", variable.Identifier.Value);
+		
+		if (entry is not VariableEntry) throw new SemanticAnalzyerException($"Identifier \"{variable.Identifier.Value}\" is not a variable.", variable.Identifier.Value);
+		
+		variable.ReturnType = entry.ReturnType;
+	}
+	
+	static void CheckTypesInCast(SymbolTable symbol_table, ParseNode.Cast cast)
+	{
+		// Casts cannot be applied to assignments
+		if (cast.Expression is ParseNode.Assignment)
+			throw new SemanticAnalzyerException($"Cast \"{cast}\" cannot be applied to an assignment.", "");
+		
+		CheckTypesInExpression(symbol_table, cast.Expression);
+		// The return type of the cast itself is set by the parser
+	}
+	
+	static void CheckTypesInFunctionCall(SymbolTable symbol_table, ParseNode.FunctionCall function_call)
+	{
+		if (!symbol_table.TryGetSymbol(function_call.Identifier.Value, out SymbolTableEntry entry))
+			throw new SemanticAnalzyerException($"Function \"{function_call.Identifier.Value}\" does not exist.", function_call.Identifier.Value);
+
+		if (entry is not FunctionEntry function_entry) throw new SemanticAnalzyerException($"Variable \"{function_call.Identifier.Value}\" is being used like a function.", function_call.Identifier.Value);
+
+		// TODO: Eventually this will actually check that the arguments match
+		if (function_entry.ParameterTypes.Count != function_call.Arguments.Count) throw new SemanticAnalzyerException($"Function \"{function_call.Identifier.Value}\" expects {function_entry.ParameterTypes.Count} arguments, got {function_call.Arguments.Count}.", function_call.Identifier.Value);
+		
+		for (int i = 0; i < function_call.Arguments.Count; i++)
+		{
+			CheckTypesInExpression(symbol_table, function_call.Arguments[i]);
+			function_call.Arguments[i] = ConvertExpressionTo(function_call.Arguments[i], function_entry.ParameterTypes[i]);
+		}
+			
+		function_call.ReturnType = entry.ReturnType;
+	}
+	
+	static void CheckTypesInAssignment(SymbolTable symbol_table, ParseNode.Assignment assignment)
+	{
+		CheckTypesInExpression(symbol_table, assignment.Destination);
+		CheckTypesInExpression(symbol_table, assignment.Source);
+		assignment.Source = ConvertExpressionTo(assignment.Source, assignment.Destination.ReturnType);
+		assignment.ReturnType = assignment.Destination.ReturnType;
+	}
+	
+	static void CheckTypesInConditionalExpression(SymbolTable symbol_table, ParseNode.Conditional conditional)
+	{
+		CheckTypesInExpression(symbol_table, conditional.Condition);
+		CheckTypesInExpression(symbol_table, conditional.Then);
+		CheckTypesInExpression(symbol_table, conditional.Else);
+		
+		PrimitiveType common_type = GetCommonType(conditional.Then.ReturnType, conditional.Else.ReturnType);
+		
+		conditional.Then = ConvertExpressionTo(conditional.Then, common_type);
+		conditional.Else = ConvertExpressionTo(conditional.Else, common_type);
+		conditional.ReturnType = common_type;
+	}
+	
+	static void CheckTypesInBinaryExpression(SymbolTable symbol_table, ParseNode.BinaryExpression binary)
+	{
+		CheckTypesInExpression(symbol_table, binary.LeftExpression);
+		CheckTypesInExpression(symbol_table, binary.RightExpression);
+		
+		switch (binary.Operator)
+		{
+			case Lexer.Syntax.BinaryOperator.LogicalAnd:
+			case Lexer.Syntax.BinaryOperator.LogicalOr:
+				binary.ReturnType = PrimitiveType.Integer;
+				return;
+		}
+
+		PrimitiveType common_type = GetCommonType(binary.LeftExpression.ReturnType, binary.RightExpression.ReturnType);
+		
+		binary.LeftExpression = ConvertExpressionTo(binary.LeftExpression, common_type);
+		binary.RightExpression = ConvertExpressionTo(binary.RightExpression, common_type);
+		
+		switch (binary.Operator)
+		{
+			case Lexer.Syntax.BinaryOperator.Addition:
+			case Lexer.Syntax.BinaryOperator.Subtraction:
+			case Lexer.Syntax.BinaryOperator.Multiplication:
+			case Lexer.Syntax.BinaryOperator.Division:
+				binary.ReturnType = common_type;
+				return;
+			case Lexer.Syntax.BinaryOperator.Remainder:
+				if (common_type == PrimitiveType.Double)
+					throw new SemanticAnalzyerException($"Operator '%' cannot be applied to type 'double'.", binary.ToString());
+				binary.ReturnType = common_type;
+				return;
+			default:
+				binary.ReturnType = PrimitiveType.Integer;
+				return;
+		}
+	}
+	
+	static void CheckTypesInUnaryExpression(SymbolTable symbol_table, ParseNode.UnaryExpression unary)
+	{
+		CheckTypesInExpression(symbol_table, unary.Expression);
+		switch (unary.Operator)
+		{
+			case Lexer.Syntax.UnaryOperator.Not:
+				unary.ReturnType = PrimitiveType.Integer;
+				return;
+			case Lexer.Syntax.UnaryOperator.BitwiseComplement:
+				if (unary.Expression.ReturnType == PrimitiveType.Double)
+					throw new SemanticAnalzyerException($"Operator '~' cannot be applied to type 'double'.", unary.ToString());
+				unary.ReturnType = unary.Expression.ReturnType;
+				return;
+			default:
+				unary.ReturnType = unary.Expression.ReturnType;
+				return;
+		}
 	}
 	
 	static PrimitiveType GetCommonType(PrimitiveType a, PrimitiveType b)
 	{
 		if (a == b) return a;
+		
+		if (a == PrimitiveType.Double || b == PrimitiveType.Double) return PrimitiveType.Double;
 		
 		if (a.GetSize() == b.GetSize())
 			if (a.IsSigned()) return b;
@@ -376,5 +429,29 @@ public static class TypeChecker
 	{
 		if (expression.ReturnType == target_type) return expression;
 		return new ParseNode.Cast(target_type, expression);
+	}
+	
+	static InitialValue GenerateInitialValue(PrimitiveType type, ParseNode.Constant constant)
+	{
+		if (type == PrimitiveType.Double)
+		{
+			if (constant is ParseNode.IntegerConstant integer_to_double) return new InitialValue.FloatingPointConstant((double)integer_to_double.Value);
+			else if (constant is ParseNode.FloatingPointConstant @double) return new InitialValue.FloatingPointConstant(@double.Value);
+			else throw new System.Exception();
+		}
+		
+		if (constant is ParseNode.IntegerConstant integer) return new InitialValue.IntegerConstant(type, integer.Value);
+		else if (constant is ParseNode.FloatingPointConstant @double) {
+			return type switch
+			{
+				PrimitiveType.Integer => new InitialValue.IntegerConstant(type, int.CreateTruncating(@double.Value)),
+				PrimitiveType.Long => new InitialValue.IntegerConstant(type, long.CreateTruncating(@double.Value)),
+				PrimitiveType.UnsignedInteger => new InitialValue.IntegerConstant(type, uint.CreateTruncating(@double.Value)),
+				PrimitiveType.UnsignedLong => new InitialValue.IntegerConstant(type, ulong.CreateTruncating(@double.Value)),
+				_ => throw new System.Exception()
+			};
+		}
+		
+		throw new System.Exception();
 	}
 }

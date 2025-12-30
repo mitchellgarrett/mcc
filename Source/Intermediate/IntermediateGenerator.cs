@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
 using FTG.Studios.MCC.Lexer;
 using FTG.Studios.MCC.Parser;
 using FTG.Studios.MCC.SemanticAnalysis;
@@ -18,7 +17,7 @@ public static class IntermediateGenerator {
 	}
 	
 	static int next_temporary_label_index;
-	static IntermediateNode.Label NextTemporaryLabel {
+	public static IntermediateNode.Label NextTemporaryLabel {
 		get { return new IntermediateNode.Label($"L{next_temporary_label_index++}"); }
 	}
 	
@@ -53,10 +52,10 @@ public static class IntermediateGenerator {
 		{
 			if (entry.Attributes is IdentifierAttributes.Static static_attributes)
 			{
-				if (static_attributes.InitialValue is InitialValue.Constant constant) {
+				if (static_attributes.InitialValue is InitialValue.IntegerConstant constant) {
 					static_variables.Add(new IntermediateNode.StaticVariable(identifier, static_attributes.IsGlobal, constant));
 				} else if (static_attributes.InitialValue is InitialValue.Tentative) {
-					static_variables.Add(new IntermediateNode.StaticVariable(identifier, static_attributes.IsGlobal, new InitialValue.Constant(entry.ReturnType, 0)));
+					static_variables.Add(new IntermediateNode.StaticVariable(identifier, static_attributes.IsGlobal, new InitialValue.IntegerConstant(entry.ReturnType, 0)));
 				}
 				// Ignore variables with no initializer
 			}
@@ -80,7 +79,7 @@ public static class IntermediateGenerator {
 		GenerateBlock(instructions, symbol_table, function.Body);
 
 		// Add Return(0) to the end of every function in case there is no explicit return given
-		GenerateReturnStatement(instructions, symbol_table, new ParseNode.Return(new ParseNode.Constant(PrimitiveType.Integer, 0)));
+		GenerateReturnStatement(instructions, symbol_table, new ParseNode.Return(new ParseNode.IntegerConstant(PrimitiveType.Integer, 0)));
 
 		// Pull the function's globality from the symbol table since it might have been definied with a different globality earlier
 		if (!symbol_table.TryGetSymbol(function.Identifier.Value, out SymbolTableEntry entry)) throw new IntermediateGeneratorException($"Function \"{function.Identifier.Value}\" does not exist in symbol table.", null, null, null);
@@ -283,10 +282,10 @@ public static class IntermediateGenerator {
 	{
 		if (factor is ParseNode.Cast cast) return GenerateCast(instructions, symbol_table, cast);
 		if (factor is ParseNode.UnaryExpression unaryExpression) return GenerateUnaryExpression(instructions, symbol_table, unaryExpression);
-		if (factor is ParseNode.Constant constant) return new IntermediateNode.Constant(constant.ReturnType, constant.Value);
+		if (factor is ParseNode.IntegerConstant constant) return new IntermediateNode.Constant(constant.ReturnType, constant.Value);
 		if (factor is ParseNode.Variable variable) return new IntermediateNode.Variable(variable.Identifier.Value);
 		
-		throw new IntermediateGeneratorException("GenerateFactor", factor.GetType(), factor, typeof(ParseNode.UnaryExpression), typeof(ParseNode.Constant), typeof(ParseNode.Variable));
+		throw new IntermediateGeneratorException("GenerateFactor", factor.GetType(), factor, typeof(ParseNode.UnaryExpression), typeof(ParseNode.IntegerConstant), typeof(ParseNode.Variable));
 	}
 	
 	static IntermediateNode.Operand GenerateCast(List<IntermediateNode.Instruction> instructions, SymbolTable symbol_table, ParseNode.Cast cast)
@@ -298,8 +297,24 @@ public static class IntermediateGenerator {
 		
 		instructions.Add(new IntermediateNode.Comment($"({cast.ReturnType}) {cast.Expression}"));
 		
+		// If casting from an integer to a double, use either IntegerToDouble or UnsignedIntegerToDouble
+		if (cast.ReturnType == PrimitiveType.Double && cast.Expression.ReturnType != PrimitiveType.Double)
+		{
+			if (cast.Expression.ReturnType.IsSigned())
+				instructions.Add(new IntermediateNode.IntegerToDouble(value, destination));
+			else
+				instructions.Add(new IntermediateNode.UnsignedIntegerToDouble(value, destination));
+		}
+		// If casting from a double to an integer, use either DoubleToInteger or UnsignedDoubleToInteger
+		if (cast.ReturnType != PrimitiveType.Double && cast.Expression.ReturnType == PrimitiveType.Double)
+		{
+			if (cast.ReturnType.IsSigned())
+				instructions.Add(new IntermediateNode.DoubleToInteger(value, destination));
+			else
+				instructions.Add(new IntermediateNode.DoubleToUnsignedInteger(value, destination));
+		}
 		// If casting to a destination of the same size, simply copy the value to its destination
-		if (cast.ReturnType.GetSize() == cast.Expression.ReturnType.GetSize())
+		else if (cast.ReturnType.GetSize() == cast.Expression.ReturnType.GetSize())
 			instructions.Add(new IntermediateNode.Copy(value, destination));
 		// If casting to a destination of a smaller size, truncate the value
 		else if (cast.ReturnType.GetSize() < cast.Expression.ReturnType.GetSize())

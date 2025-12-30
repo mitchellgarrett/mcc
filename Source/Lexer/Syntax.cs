@@ -37,10 +37,13 @@ public static class Syntax {
 	public const char operator_ternary_false = ':';
 	
 	public const string identifier = @"^[a-zA-Z]\w*\b$";
+	
+	// For number values the book says to end on '[^\w.]', but that breaks things so we're sticking with '\b'
 	public const string integer_literal = @"^[0-9]+\b$";
 	public const string unsigned_integer_literal = @"^[0-9]+[uU]\b$";
 	public const string long_literal = @"^[0-9]+[lL]\b$";
 	public const string unsigned_long_literal = @"^[0-9]+([lL][uU]|[uU][lL])\b$";
+	public const string floating_point_literal = @"^(([0-9]*\.[0-9]+|[0-9]+\.?)[Ee][+-]?[0-9]+|[0-9]*\.[0-9]+|[0-9]+\.)[^\w.]";
 
 	// Comments
 	public const string single_line_comment = "//";
@@ -49,12 +52,10 @@ public static class Syntax {
 
 	// Preprocessor
 	public const char preprocessor_directive = '#';
-	
-	public static readonly string[] keywords = ["void", "return", "int", "long", "if", "else", "do", "while", "for", "break", "continue", "static", "extern", "signed", "unsigned"];
-	
-	public enum Keyword { Void, Return, Integer, Long, If, Else, Do, While, For, Break, Continue, Static, Extern, Signed, Unsigned };
-	public enum UnaryOperator { Negation, Not, BitwiseComplement, Decrement };
-	public enum BinaryOperator { Addition, Subtraction, Multiplication, Division, Remainder, Assignment, LogicalAnd, LogicalOr, LogicalEqual, LogicalNotEqual, LogicalLess, LogicalGreater, LogicalLessEqual, LogicalGreaterEqual, ConditionalTrue, ConditionalFalse };
+		
+	public enum Keyword { Void, Return, Int, Long, Double, If, Else, Do, While, For, Break, Continue, Static, Extern, Signed, Unsigned };
+	public enum UnaryOperator { Negation, Not, BitwiseComplement, Decrement, ShiftRight };
+	public enum BinaryOperator { Addition, Subtraction, Multiplication, Division, Remainder, Assignment, LogicalAnd, LogicalOr, LogicalEqual, LogicalNotEqual, LogicalLess, LogicalGreater, LogicalLessEqual, LogicalGreaterEqual, ConditionalTrue, ConditionalFalse, BitwiseAnd, BitwiseOr, ExclusiveOr };
 	
 	static readonly string[] unary_operators = [operator_negation.ToString(), operator_not.ToString(), operator_bitwise_complement.ToString(), operator_decrement];
 	public static string GetOperator(this UnaryOperator op) {

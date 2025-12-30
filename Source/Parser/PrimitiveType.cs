@@ -1,6 +1,6 @@
 namespace FTG.Studios.MCC.Parser;
 
-public enum PrimitiveType { Integer, Long, UnsignedInteger, UnsignedLong };
+public enum PrimitiveType { Integer, Long, UnsignedInteger, UnsignedLong, Double };
 
 public static class PrimitiveTypeExtensions
 {
@@ -12,6 +12,7 @@ public static class PrimitiveTypeExtensions
 			PrimitiveType.Long => 8,
 			PrimitiveType.UnsignedInteger => 4,
 			PrimitiveType.UnsignedLong => 8,
+			PrimitiveType.Double => 8,
 			_ => throw new System.Exception(),
 		};
 	}
@@ -24,6 +25,7 @@ public static class PrimitiveTypeExtensions
 			PrimitiveType.Long => true,
 			PrimitiveType.UnsignedInteger => false,
 			PrimitiveType.UnsignedLong => false,
+			PrimitiveType.Double => true,
 			_ => throw new System.Exception(),
 		};
 	}
@@ -36,6 +38,7 @@ public static class PrimitiveTypeExtensions
 			PrimitiveType.Long => "long",
 			PrimitiveType.UnsignedInteger => "uint",
 			PrimitiveType.UnsignedLong => "ulong",
+			PrimitiveType.Double => "double",
 			_ => throw new System.Exception(),
 		};
 	}

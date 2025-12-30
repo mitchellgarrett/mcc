@@ -8,8 +8,8 @@ namespace FTG.Studios.MCC.Parser;
 
 public static partial class Parser
 {	
-	static readonly List<Syntax.Keyword> valid_specifiers = [Syntax.Keyword.Integer, Syntax.Keyword.Long, Syntax.Keyword.Signed, Syntax.Keyword.Unsigned, Syntax.Keyword.Static, Syntax.Keyword.Extern];
-	static readonly List<Syntax.Keyword> valid_type_specifiers = [Syntax.Keyword.Integer, Syntax.Keyword.Long, Syntax.Keyword.Signed, Syntax.Keyword.Unsigned];
+	static readonly List<Syntax.Keyword> valid_specifiers = [Syntax.Keyword.Int, Syntax.Keyword.Long, Syntax.Keyword.Signed, Syntax.Keyword.Unsigned, Syntax.Keyword.Static, Syntax.Keyword.Extern, Syntax.Keyword.Double];
+	static readonly List<Syntax.Keyword> valid_type_specifiers = [Syntax.Keyword.Int, Syntax.Keyword.Long, Syntax.Keyword.Signed, Syntax.Keyword.Unsigned, Syntax.Keyword.Double];
 	
 	public static ParseTree Parse(List<Token> tokens) {
 		LinkedList<Token> stream = new(tokens);
@@ -142,6 +142,9 @@ public static partial class Parser
 		)
 		throw new ParserException($"Invalid specifier \"{string.Join(", ", specifiers)}\".", Token.Invalid(-1));
 		
+		// The 'double' specifier cannot be paired with any other specifiers
+		if (specifiers.Count == 1 && specifiers.Contains(Syntax.Keyword.Double)) return PrimitiveType.Double;
+		if (specifiers.Contains(Syntax.Keyword.Double)) throw new ParserException($"Invalid specifier \"{string.Join(", ", specifiers)}\".", Token.Invalid(-1));
 		// If the list contains 'unsigned' and 'long', it's an unsigned long
 		if (specifiers.Contains(Syntax.Keyword.Unsigned) && specifiers.Contains(Syntax.Keyword.Long)) return PrimitiveType.UnsignedLong;
 		// If the list contains 'unsigned' but not 'long', it's an unsigned int
@@ -450,6 +453,7 @@ public static partial class Parser
 		if (Match(tokens.Peek(), TokenType.LongConstant)) return ParseConstantExpression(tokens);
 		if (Match(tokens.Peek(), TokenType.UnsignedIntegerConstant)) return ParseConstantExpression(tokens);
 		if (Match(tokens.Peek(), TokenType.UnsignedLongConstant)) return ParseConstantExpression(tokens);
+		if (Match(tokens.Peek(), TokenType.FloatingPointConstant)) return ParseConstantExpression(tokens);
 		
 		// Parse Identifiers and FunctionCalls
 		if (Match(tokens.Peek(), TokenType.Identifier)) {
@@ -549,8 +553,8 @@ public static partial class Parser
 			// Value must be smaller than the max long value
 			if (value > long.MaxValue) throw new ParserException($"Integer value: {token.Value} is too big to be represented as an 'int' or 'long'.", token);
 			
-			if (Match(token, TokenType.IntegerConstant) && value <= int.MaxValue) return new ParseNode.Constant(PrimitiveType.Integer, int.CreateTruncating(value));
-			return new ParseNode.Constant(PrimitiveType.Long, long.CreateTruncating(value));
+			if (Match(token, TokenType.IntegerConstant) && value <= int.MaxValue) return new ParseNode.IntegerConstant(PrimitiveType.Integer, int.CreateTruncating(value));
+			return new ParseNode.IntegerConstant(PrimitiveType.Long, long.CreateTruncating(value));
 		}
 		
 		if (Match(token, TokenType.UnsignedIntegerConstant) || Match(token, TokenType.UnsignedLongConstant))
@@ -559,8 +563,13 @@ public static partial class Parser
 			// Value must be smaller than the max unsigned long value
 			if (value > ulong.MaxValue) throw new ParserException($"Integer value: {token.Value} is too big to be represented as a 'uint' or 'ulong'.", token);
 			
-			if (Match(token, TokenType.UnsignedIntegerConstant) && value <= uint.MaxValue) return new ParseNode.Constant(PrimitiveType.UnsignedInteger, uint.CreateTruncating(value));
-			return new ParseNode.Constant(PrimitiveType.UnsignedLong, ulong.CreateTruncating(value));
+			if (Match(token, TokenType.UnsignedIntegerConstant) && value <= uint.MaxValue) return new ParseNode.IntegerConstant(PrimitiveType.UnsignedInteger, uint.CreateTruncating(value));
+			return new ParseNode.IntegerConstant(PrimitiveType.UnsignedLong, ulong.CreateTruncating(value));
+		}
+		
+		if (Match(token, TokenType.FloatingPointConstant))
+		{
+			return new ParseNode.FloatingPointConstant((double)token.Value);
 		}
 		
 		throw new ParserException($"Invalid constant: {token.Value}", token);

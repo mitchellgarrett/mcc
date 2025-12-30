@@ -3,6 +3,8 @@ using System.IO;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using FTG.Studios.MCC.Assembly;
+using FTG.Studios.MCC.Parser;
+using FTG.Studios.MCC.SemanticAnalysis;
 
 namespace FTG.Studios.MCC.CodeGeneration;
 
@@ -22,8 +24,9 @@ public static class CodeEmitter
 	{
 		foreach (var definition in program.TopLevelDefinitions)
 		{
-			if (definition is AssemblyNode.Function function) EmitFunction(function, file);
-			if (definition is AssemblyNode.StaticVariable variable) EmitStaticVariable(variable, file);
+				 if (definition is AssemblyNode.Function function) EmitFunction(function, file);
+			else if (definition is AssemblyNode.StaticVariable variable) EmitStaticVariable(variable, file);
+			else if (definition is AssemblyNode.StaticConstant constant) EmitStaticConstant(constant, file);
 		}
 
 		// Write Linux-specific code at end of program
@@ -60,29 +63,78 @@ public static class CodeEmitter
 		string identifier = variable.Identifier;
 		if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) identifier = macos_function_prefix + identifier;
 		
-		file.WriteLine($"// {(variable.IsGlobal ? "extern" : "static")} int {variable.Identifier} = {variable.InitialValue.Value}");
+		file.WriteLine($"// {(variable.IsGlobal ? "extern" : "static")} {variable.InitialValue.Type.ToShortString()} {variable.Identifier} = {variable.InitialValue.ToCommentString()}");
 		if (variable.IsGlobal) file.WriteLine($".globl {identifier}");
 		
-		// Zero-initialized variables go to the bss section
-		bool is_zero = variable.InitialValue.Value == 0;
-		if (is_zero) file.WriteLine(".bss");
-		else file.WriteLine(".data");
+		bool is_zero = variable.InitialValue is InitialValue.IntegerConstant integer && integer.Value == 0;
+		// Zero-initialized integer variables go to the bss section
+		if (is_zero) EmitZeroInitializer(variable.Alignment, identifier, file);
+		// Non-zero integer and all double variables go in the data section
+		else EmitNonZeroInitializer(variable.InitialValue, variable.Alignment, identifier, file);
+	}
+	
+	static void EmitZeroInitializer(int alignment, string identifier, StreamWriter file)
+	{
+		file.WriteLine(".bss");
 		
-		if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) file.WriteLine($".balign {variable.Alignment}");
-		else file.WriteLine($".align {variable.Alignment}");
+		if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) file.WriteLine($".balign {alignment}");
+		else file.WriteLine($".align {alignment}");
 		
 		file.WriteLine($"{identifier}:");
+		file.WriteLine($".zero {alignment}");
+	}
+	
+	static void EmitNonZeroInitializer(InitialValue.Constant constant, int alignment, string identifier, StreamWriter file)
+	{
+		file.WriteLine(".data");
 		
-		if (is_zero) file.WriteLine($".zero {variable.Alignment}");
-		else {
-			BigInteger value = variable.InitialValue.Value;
-			value = variable.Alignment switch
+		if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) file.WriteLine($".balign {alignment}");
+		else file.WriteLine($".align {alignment}");
+		
+		file.WriteLine($"{identifier}:");
+		EmitValue(constant, alignment, file);
+	}
+	
+	static void EmitStaticConstant(AssemblyNode.StaticConstant constant, StreamWriter file)
+	{
+		string identifier = constant.Identifier;
+		if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+		{
+			identifier = $"L{identifier}";
+			file.WriteLine($".literal{constant.Alignment}");
+			file.WriteLine($".balign{constant.Alignment}");
+		}
+		else
+		{
+			identifier = $".L{identifier}";
+			file.WriteLine(".section .rodata");
+			file.WriteLine($".align {constant.Alignment}");
+		}
+		
+		file.WriteLine($"{identifier}:");
+		EmitValue(constant.InitialValue, constant.Alignment, file);
+		
+		// Print out 8 zero bytes at end of MacOS .literal16 section to ensure it is 16-byte aligned
+		if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) && constant.Alignment == 16)
+			file.WriteLine(".quad 0");
+	}
+	
+	static void EmitValue(InitialValue.Constant constant, int alignment, StreamWriter file)
+	{
+		if (constant is InitialValue.FloatingPointConstant @double)
+		{
+			file.WriteLine($".double {@double.Value}");
+		} else
+		{
+			var integer = constant as InitialValue.IntegerConstant;
+			BigInteger value = integer.Value;
+			value = alignment switch
 			{
 				4 => value > uint.MaxValue ? uint.CreateTruncating(value) : value,
 				8 => value > ulong.MaxValue ? ulong.CreateTruncating(value) : value,
 				_ => throw new Exception(),
 			};
-			file.WriteLine($"{variable.Alignment.GetInitializer()} {value}");
+			file.WriteLine($"{alignment.GetInitializer()} {value}");
 		}
 	}
 }

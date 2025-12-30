@@ -33,7 +33,7 @@ public static class VariableAssigner
 				if (@object.IsStatic) return new AssemblyNode.DataAccess(identifier);
 				return GetStackOffset(identifier, @object.Type.GetSize());
 			}
-			if (entry is Assembly.FunctionEntry) return new AssemblyNode.DataAccess(identifier);
+			if (entry is FunctionEntry) return new AssemblyNode.DataAccess(identifier);
 		}
 		throw new Exception();
 	}
@@ -45,16 +45,29 @@ public static class VariableAssigner
 
 		foreach (var instruction in function.Body)
 		{
-			if (instruction is AssemblyNode.MOV mov) AssignVariablesMOV(mov, symbol_table);
-			if (instruction is AssemblyNode.MOVSX movsx) AssignVariablesMOVSX(movsx, symbol_table);
-			if (instruction is AssemblyNode.MOVZ movz) AssignVariablesMOVZ(movz, symbol_table);
-			if (instruction is AssemblyNode.CMP cmp) AssignVariablesCMP(cmp, symbol_table);
-			if (instruction is AssemblyNode.SETCC setcc) AssignVariablesSET(setcc, symbol_table);
-			if (instruction is AssemblyNode.IDIV idiv) AssignVariablesIDIV(idiv, symbol_table);
-			if (instruction is AssemblyNode.DIV div) AssignVariablesDIV(div, symbol_table);
-			if (instruction is AssemblyNode.Unary unary) AssignVariablesUnaryInstruction(unary, symbol_table);
-			if (instruction is AssemblyNode.Binary binary) AssignVariablesBinaryInstruction(binary, symbol_table);
-			if (instruction is AssemblyNode.Push push) AssignVariablesPushInstruction(push, symbol_table);
+				 if (instruction is AssemblyNode.MOV mov) AssignVariablesMOV(mov, symbol_table);
+			else if (instruction is AssemblyNode.MOVSX movsx) AssignVariablesMOVSX(movsx, symbol_table);
+			else if (instruction is AssemblyNode.MOVZ movz) AssignVariablesMOVZ(movz, symbol_table);
+			else if (instruction is AssemblyNode.CMP cmp) AssignVariablesCMP(cmp, symbol_table);
+			else if (instruction is AssemblyNode.SETCC setcc) AssignVariablesSET(setcc, symbol_table);
+			else if (instruction is AssemblyNode.IDIV idiv) AssignVariablesIDIV(idiv, symbol_table);
+			else if (instruction is AssemblyNode.DIV div) AssignVariablesDIV(div, symbol_table);
+			else if (instruction is AssemblyNode.Unary unary) AssignVariablesUnaryInstruction(unary, symbol_table);
+			else if (instruction is AssemblyNode.Binary binary) AssignVariablesBinaryInstruction(binary, symbol_table);
+			else if (instruction is AssemblyNode.Push push) AssignVariablesPushInstruction(push, symbol_table);
+			else if (instruction is AssemblyNode.CVTSI2SD cvtsi2sd) AssignVariablesCVTSI2SDInstruction(cvtsi2sd, symbol_table);
+			else if (instruction is AssemblyNode.CVTTSD2SI cvttsd2si) AssignVariablesCVTTSD2SIInstruction(cvttsd2si, symbol_table);
+#pragma warning disable CS0642 // Possible mistaken empty statement
+			else if (instruction is AssemblyNode.RET) ;
+			else if (instruction is AssemblyNode.CDQ) ;
+			else if (instruction is AssemblyNode.JMP) ;
+			else if (instruction is AssemblyNode.JMPCC) ;
+			else if (instruction is AssemblyNode.SETCC) ;
+			else if (instruction is AssemblyNode.Label) ;
+			else if (instruction is AssemblyNode.Call) ;
+			else if (instruction is AssemblyNode.Comment) ;
+#pragma warning restore CS0642 // Possible mistaken empty statement
+			else throw new Exception($"Invalid AssemblyNode of type '{instruction.GetType()}'");
 		}
 
 		int space_to_allocate = Math.Abs(stack_offset);
@@ -151,5 +164,25 @@ public static class VariableAssigner
 	{
 		if (instruction.Operand is AssemblyNode.PseudoRegister variable)
 			instruction.Operand = GetMemoryAccess(variable.Identifier, symbol_table);
+	}
+	
+	static void AssignVariablesCVTSI2SDInstruction(AssemblyNode.CVTSI2SD instruction, AssemblySymbolTable symbol_table) {
+		if (instruction.Source is AssemblyNode.PseudoRegister source) {
+			instruction.Source = GetMemoryAccess(source.Identifier, symbol_table);
+		}
+		
+		if (instruction.Destination is AssemblyNode.PseudoRegister destination) {
+			instruction.Destination = GetMemoryAccess(destination.Identifier, symbol_table);
+		}
+	}
+	
+	static void AssignVariablesCVTTSD2SIInstruction(AssemblyNode.CVTTSD2SI instruction, AssemblySymbolTable symbol_table) {
+		if (instruction.Source is AssemblyNode.PseudoRegister source) {
+			instruction.Source = GetMemoryAccess(source.Identifier, symbol_table);
+		}
+		
+		if (instruction.Destination is AssemblyNode.PseudoRegister destination) {
+			instruction.Destination = GetMemoryAccess(destination.Identifier, symbol_table);
+		}
 	}
 }

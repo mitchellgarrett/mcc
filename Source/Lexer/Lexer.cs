@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Text.RegularExpressions;
@@ -153,8 +154,9 @@ public static class Lexer
 		if (operator_token.IsValid) return operator_token;
 		
 		// Check if keyword
-		for (int index = 0; index < Syntax.keywords.Length; index++)
-			if (lexeme == Syntax.keywords[index]) return new Token(current_line, TokenType.Keyword, (Syntax.Keyword)index);
+		foreach (Syntax.Keyword keyword in Enum.GetValues<Syntax.Keyword>())
+			if (lexeme == keyword.ToString().ToLower())
+				return new Token(current_line, TokenType.Keyword, keyword);
 
 		// Check if identifier
 		if (Regex.IsMatch(lexeme, Syntax.identifier))
@@ -175,6 +177,10 @@ public static class Lexer
 		// Check if unsigned long literal
 		if (Regex.IsMatch(lexeme, Syntax.unsigned_long_literal))
 			return new Token(current_line, TokenType.UnsignedLongConstant, BigInteger.Parse(lexeme.TrimEnd('l', 'L', 'u', 'U')));
+		
+		// Check if floating point literal
+		if (Regex.IsMatch(lexeme, Syntax.floating_point_literal))
+			return new Token(current_line, TokenType.UnsignedLongConstant, double.Parse(lexeme));
 
 		// At this point we know the lexeme is invalid since it wasn't a valid identifier or constant
 		throw new LexerException($"Invalid lexeme: \'{lexeme}\'", lexeme);

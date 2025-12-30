@@ -60,6 +60,50 @@ public static partial class IntermediateNode
 			return $"Copy({Source}, {Destination})";
 		}
 	}
+	
+	public class DoubleToInteger(Operand source, Operand destination) : Instruction
+	{
+		public readonly Operand Source = source;
+		public readonly Operand Destination = destination;
+
+		public override string ToString()
+		{
+			return $"DoubleToInteger({Source}, {Destination})";
+		}
+	}
+	
+	public class DoubleToUnsignedInteger(Operand source, Operand destination) : Instruction
+	{
+		public readonly Operand Source = source;
+		public readonly Operand Destination = destination;
+
+		public override string ToString()
+		{
+			return $"DoubleToUnsignedInteger({Source}, {Destination})";
+		}
+	}
+	
+	public class IntegerToDouble(Operand source, Operand destination) : Instruction
+	{
+		public readonly Operand Source = source;
+		public readonly Operand Destination = destination;
+
+		public override string ToString()
+		{
+			return $"IntegerToDouble({Source}, {Destination})";
+		}
+	}
+	
+	public class UnsignedIntegerToDouble(Operand source, Operand destination) : Instruction
+	{
+		public readonly Operand Source = source;
+		public readonly Operand Destination = destination;
+
+		public override string ToString()
+		{
+			return $"UnsignedIntegerToDouble({Source}, {Destination})";
+		}
+	}
 
 	public class Jump(string target) : Instruction
 	{

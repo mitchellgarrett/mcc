@@ -15,14 +15,29 @@ public static class VariableAccessFixer
 	static void FixVariableAccessesFunction(AssemblyNode.Function function) {
 		for (int index = 0; index < function.Body.Count; index++)
 		{
-			if (function.Body[index] is AssemblyNode.MOV) FixVariableAccessesMOV(function.Body, index);
-			if (function.Body[index] is AssemblyNode.MOVSX) FixVariableAccessesMOVSX(function.Body, index);
-			if (function.Body[index] is AssemblyNode.MOVZ) FixVariableAccessesMOVZ(function.Body, index);
-			if (function.Body[index] is AssemblyNode.CMP) FixVariableAccessesCMP(function.Body, index);
-			if (function.Body[index] is AssemblyNode.IDIV) FixVariableAccessesIDIV(function.Body, index);
-			if (function.Body[index] is AssemblyNode.DIV) FixVariableAccessesDIV(function.Body, index);
-			if (function.Body[index] is AssemblyNode.Push) FixVariableAccessesPush(function.Body, index);
-			if (function.Body[index] is AssemblyNode.Binary) FixVariableAccessesBinaryInstruction(function.Body, index);
+			var instruction = function.Body[index];
+			     if (instruction is AssemblyNode.MOV) FixVariableAccessesMOV(function.Body, index);
+			else if (instruction is AssemblyNode.MOVSX) FixVariableAccessesMOVSX(function.Body, index);
+			else if (instruction is AssemblyNode.MOVZ) FixVariableAccessesMOVZ(function.Body, index);
+			else if (instruction is AssemblyNode.CMP) FixVariableAccessesCMP(function.Body, index);
+			else if (instruction is AssemblyNode.IDIV) FixVariableAccessesIDIV(function.Body, index);
+			else if (instruction is AssemblyNode.DIV) FixVariableAccessesDIV(function.Body, index);
+			else if (instruction is AssemblyNode.Push) FixVariableAccessesPush(function.Body, index);
+			else if (instruction is AssemblyNode.Binary) FixVariableAccessesBinaryInstruction(function.Body, index);
+			else if (instruction is AssemblyNode.CVTSI2SD) FixVariableAccessesCVTSI2SD(function.Body, index);
+			else if (instruction is AssemblyNode.CVTTSD2SI) FixVariableAccessesCVTTSD2SI(function.Body, index);
+#pragma warning disable CS0642 // Possible mistaken empty statement
+			else if (instruction is AssemblyNode.RET) ;
+			else if (instruction is AssemblyNode.CDQ) ;
+			else if (instruction is AssemblyNode.JMP) ;
+			else if (instruction is AssemblyNode.JMPCC) ;
+			else if (instruction is AssemblyNode.SETCC) ;
+			else if (instruction is AssemblyNode.Label) ;
+			else if (instruction is AssemblyNode.Unary) ;
+			else if (instruction is AssemblyNode.Call) ;
+			else if (instruction is AssemblyNode.Comment) ;
+#pragma warning restore CS0642 // Possible mistaken empty statement
+			else throw new System.Exception($"Invalid AssemblyNode of type '{instruction.GetType()}'");
 		}
 	}
 	
@@ -30,8 +45,10 @@ public static class VariableAccessFixer
 		// MOV can't have memory locations as both operands
 		AssemblyNode.MOV instruction = instructions[index] as AssemblyNode.MOV;
 		if (instruction.Source is AssemblyNode.MemoryAccess && instruction.Destination is AssemblyNode.MemoryAccess) {
-			instructions.Insert(index, new AssemblyNode.MOV(instruction.Type, instruction.Source, RegisterType.R10.ToOperand()));
-			instruction.Source = RegisterType.R10.ToOperand();
+			var register = RegisterType.R10.ToOperand();
+			if (instruction.Type == AssemblyType.Double) register = RegisterType.XMM15.ToOperand();
+			instructions.Insert(index, new AssemblyNode.MOV(instruction.Type, instruction.Source, register));
+			instruction.Source = register;
 		}
 		
 		// MOVQ can't move immediates into memory
@@ -103,14 +120,21 @@ public static class VariableAccessFixer
 		
 		// CMP can't have memory locations as both operands
 		if (instruction.LeftOperand is AssemblyNode.MemoryAccess && instruction.RightOperand is AssemblyNode.MemoryAccess memory_access) {
-			instructions.Insert(index, new AssemblyNode.MOV(instruction.Type, memory_access, RegisterType.R10.ToOperand()));
+			instructions.Insert(index++, new AssemblyNode.MOV(instruction.Type, memory_access, RegisterType.R10.ToOperand()));
 			instruction.RightOperand = RegisterType.R10.ToOperand();
 		}
 		
 		// CMP can't have immediate as second operand
 		if (instruction.RightOperand is AssemblyNode.Immediate immediate) {
-			instructions.Insert(index, new AssemblyNode.MOV(instruction.Type, immediate, RegisterType.R11.ToOperand()));
+			instructions.Insert(index++, new AssemblyNode.MOV(instruction.Type, immediate, RegisterType.R11.ToOperand()));
 			instruction.RightOperand = RegisterType.R11.ToOperand();
+		}
+
+		// CMPISD must have a register as its destination
+		if (instruction.Type == AssemblyType.Double && instruction.RightOperand is not AssemblyNode.Register)
+		{
+			instructions.Insert(index++, new AssemblyNode.MOV(AssemblyType.Double, instruction.RightOperand, RegisterType.XMM15.ToOperand()));
+			instruction.RightOperand = RegisterType.XMM15.ToOperand();
 		}
 	}
 	
@@ -145,9 +169,9 @@ public static class VariableAccessFixer
 	static void FixVariableAccessesBinaryInstruction(List<AssemblyNode.Instruction> instructions, int index) {
 		AssemblyNode.Binary instruction = instructions[index] as AssemblyNode.Binary;
 
-		// IMUL/ADD/SUB can't have an immediate value >= 2^32
+		// IMUL/ADD/SUB/AND/OR can't have an immediate value >= 2^32
 		if (
-			(instruction.Operator == Syntax.BinaryOperator.Multiplication || instruction.Operator == Syntax.BinaryOperator.Addition || instruction.Operator == Syntax.BinaryOperator.Subtraction)
+			(instruction.Operator == Syntax.BinaryOperator.Multiplication || instruction.Operator == Syntax.BinaryOperator.Addition || instruction.Operator == Syntax.BinaryOperator.Subtraction || instruction.Operator == Syntax.BinaryOperator.BitwiseAnd || instruction.Operator == Syntax.BinaryOperator.BitwiseOr)
 			&& instruction.Source is AssemblyNode.Immediate immediate
 			&& immediate.Value > int.MaxValue
 		)
@@ -163,10 +187,47 @@ public static class VariableAccessFixer
 			instructions.Insert(index + 2, new AssemblyNode.MOV(instruction.Type, RegisterType.R11.ToOperand(), destination));
 		}
 		
-		// ADD/SUB can't have both operands be memory locations
-		if (instruction.Source is AssemblyNode.MemoryAccess source && instruction.Destination is AssemblyNode.MemoryAccess) {
+		// ADD/SUB/AND/OR can't have both operands be memory locations
+		if (
+			(instruction.Operator == Syntax.BinaryOperator.Addition || instruction.Operator == Syntax.BinaryOperator.Subtraction || instruction.Operator == Syntax.BinaryOperator.BitwiseAnd || instruction.Operator == Syntax.BinaryOperator.BitwiseOr) &&
+			instruction.Source is AssemblyNode.MemoryAccess source && instruction.Destination is AssemblyNode.MemoryAccess
+		) {
 			instruction.Source = RegisterType.R10.ToOperand();
 			instructions.Insert(index, new AssemblyNode.MOV(instruction.Type, source, RegisterType.R10.ToOperand()));
+		}
+		
+		// ADDSD/SUBSD/MULSD/DIVSD/XORPD must have registers as their destinations
+		if (instruction.Type == AssemblyType.Double)
+		{
+			instructions.Insert(index, new AssemblyNode.MOV(AssemblyType.Double, instruction.Source, RegisterType.XMM15.ToOperand()));
+			instruction.Destination = RegisterType.XMM15.ToOperand();
+		}
+	}
+	
+	static void FixVariableAccessesCVTSI2SD(List<AssemblyNode.Instruction> instructions, int index) {
+		AssemblyNode.CVTSI2SD instruction = instructions[index] as AssemblyNode.CVTSI2SD;
+		// CVTSI2SD must have a register as its destination
+		if (instruction.Destination is not AssemblyNode.Register)
+		{
+			instructions.Insert(index + 1, new AssemblyNode.MOV(AssemblyType.QuadWord, RegisterType.R11.ToOperand(), instruction.Destination));
+			instruction.Destination = RegisterType.R11.ToOperand();
+		}
+	}
+	
+	static void FixVariableAccessesCVTTSD2SI(List<AssemblyNode.Instruction> instructions, int index) {
+		AssemblyNode.CVTTSD2SI instruction = instructions[index] as AssemblyNode.CVTTSD2SI;
+		// CVTTSD2SI cannot have an immediate as its source
+		if (instruction.Destination is AssemblyNode.Immediate)
+		{
+			instructions.Insert(index++, new AssemblyNode.MOV(AssemblyType.LongWord, instruction.Source, RegisterType.R10.ToOperand()));
+			instruction.Source = RegisterType.R10.ToOperand();
+		}
+		
+		// CVTTSD2SI must have a register as its destination
+		if (instruction.Destination is not AssemblyNode.Register)
+		{
+			instructions.Insert(index + 1, new AssemblyNode.MOV(AssemblyType.Double, RegisterType.XMM15.ToOperand(), instruction.Destination));
+			instruction.Destination = RegisterType.XMM15.ToOperand();
 		}
 	}
 }

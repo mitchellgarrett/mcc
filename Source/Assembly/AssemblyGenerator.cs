@@ -10,25 +10,34 @@ namespace FTG.Studios.MCC.Assembly;
 	
 public static class AssemblyGenerator {
 	
+	// TODO: Make this a symbol table that can produce the same identifier for constants of the same value
+	static int next_constant_label_index;
+	static string NextConstantLabel {
+		get { return $"C{next_constant_label_index++}"; }
+	}
+	
 	public static AssemblyTree Generate(IntermediateTree tree, SymbolTable symbol_table) {
+		next_constant_label_index = 0;
 		AssemblyNode.Program program = GenerateProgram(tree.Program, symbol_table);
 		return new AssemblyTree(program);
 	}
 	
 	static AssemblyNode.Program GenerateProgram(IntermediateNode.Program program, SymbolTable symbol_table) {
 		List<AssemblyNode.TopLevel> definitions = [];
-		foreach (var definition in program.TopLevelDefinitions) definitions.Add(GenerateTopLevelDefinition(definition, symbol_table));
+		List<AssemblyNode.StaticConstant> constants = [];
+		foreach (var definition in program.TopLevelDefinitions) definitions.Add(GenerateTopLevelDefinition(definition, constants, symbol_table));
+		definitions.AddRange(constants);
 		return new AssemblyNode.Program(definitions);
 	}
 
-	static AssemblyNode.TopLevel GenerateTopLevelDefinition(IntermediateNode.TopLevel definition, SymbolTable symbol_table)
+	static AssemblyNode.TopLevel GenerateTopLevelDefinition(IntermediateNode.TopLevel definition, List<AssemblyNode.StaticConstant> constants, SymbolTable symbol_table)
 	{
-		if (definition is IntermediateNode.Function function) return GenerateFunctionDefinition(function, symbol_table);
+		if (definition is IntermediateNode.Function function) return GenerateFunctionDefinition(function, constants, symbol_table);
 		if (definition is IntermediateNode.StaticVariable static_variable) return GenerateStaticVariable(static_variable, symbol_table);
 		throw new Exception();
 	}
 	
-	static AssemblyNode.Function GenerateFunctionDefinition(IntermediateNode.Function function, SymbolTable symbol_table)
+	static AssemblyNode.Function GenerateFunctionDefinition(IntermediateNode.Function function, List<AssemblyNode.StaticConstant> constants, SymbolTable symbol_table)
 	{
 		string identifier = function.Identifier;
 
@@ -41,6 +50,44 @@ public static class AssemblyGenerator {
 			new AssemblyNode.Binary(AssemblyType.QuadWord, Syntax.BinaryOperator.Subtraction, 8.ToAssemblyImmediate(), RegisterType.SP.ToOperand()),
 			new AssemblyNode.Comment("copy arguments to stack")
 		];
+		
+		(var integer_register_arguments, var double_register_arguments, var stack_arguments) = ClassifyFunctionParameters(symbol_table, function.Parameters);
+		
+
+		// Copy first 6 integer arguments into general-purpose registers
+		for (int i = 0; i < integer_register_arguments.Count; i++)
+		{
+			(var type, var operand) = integer_register_arguments[i];
+			instructions.Add(
+				new AssemblyNode.MOV(
+					type,
+					RegisterTypeExtensions.integer_function_call_order[i].ToOperand(),
+					operand
+				)
+			);
+		}
+		
+		// Copy first 8 double arguments into floating pont registers
+		for (int i = 0; i < double_register_arguments.Count; i++)
+		{
+			var operand = double_register_arguments[i];
+			instructions.Add(
+				new AssemblyNode.MOV(
+					AssemblyType.Double,
+					RegisterTypeExtensions.double_function_call_order[i].ToOperand(),
+					operand
+				)
+			);
+		}
+
+		// The rest of the arguments are pushed to the stack in reverse order
+		int stack_offset = 16;
+		for (int i = stack_arguments.Count - 1; i >= 0; i--)
+		{
+			(var type, var operand) = stack_arguments[i];
+			instructions.Add(new AssemblyNode.MOV(type, new AssemblyNode.StackAccess(stack_offset), operand));
+			stack_offset += 8;
+		}
 
 		// The first 6 parameters are stored in registers
 		for (int i = 0; i < 6 && i < function.Parameters.Length; i++)
@@ -48,7 +95,7 @@ public static class AssemblyGenerator {
 			instructions.Add(
 				new AssemblyNode.MOV(
 					function.Parameters[i].ToAssemblyType(symbol_table),
-					RegisterTypeExtensions.FunctionCallOrder[i].ToOperand(),
+					RegisterTypeExtensions.integer_function_call_order[i].ToOperand(),
 					parameters[i]
 				)
 			);
@@ -66,7 +113,7 @@ public static class AssemblyGenerator {
 			);
 		}
 
-		foreach (var instruction in function.Body) GenerateInstruction(instructions, symbol_table, instruction);
+		foreach (var instruction in function.Body) GenerateInstruction(instructions, constants, symbol_table, instruction);
 
 		return new AssemblyNode.Function(identifier, function.IsGlobal, parameters.ToArray(), instructions);
 	}
@@ -78,11 +125,11 @@ public static class AssemblyGenerator {
 		return new AssemblyNode.StaticVariable(variable.Identifier, variable.IsGlobal, alignment, variable.InitialValue);
 	}
 
-	static void GenerateInstruction(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.Instruction instruction)
+	static void GenerateInstruction(List<AssemblyNode.Instruction> instructions, List<AssemblyNode.StaticConstant> constants, SymbolTable symbol_table, IntermediateNode.Instruction instruction)
 	{
 		if (instruction is IntermediateNode.Comment comment) GenerateComment(instructions, comment);
 		if (instruction is IntermediateNode.Return @return) GenerateReturnInstruction(instructions, symbol_table, @return);
-		if (instruction is IntermediateNode.UnaryInstruction unary) GenerateUnaryInstruction(instructions, symbol_table, unary);
+		if (instruction is IntermediateNode.UnaryInstruction unary) GenerateUnaryInstruction(instructions, constants, symbol_table, unary);
 		if (instruction is IntermediateNode.BinaryInstruction binary) GenerateBinaryInstruction(instructions, symbol_table, binary);
 		if (instruction is IntermediateNode.Jump jump) GenerateJumpInstruction(instructions, jump);
 		if (instruction is IntermediateNode.JumpIfZero jump_if_zero) GenerateJumpIfZeroInstruction(instructions, symbol_table, jump_if_zero);
@@ -93,6 +140,10 @@ public static class AssemblyGenerator {
 		if (instruction is IntermediateNode.SignExtend sign_extend) GenerateSignExtend(instructions, sign_extend);
 		if (instruction is IntermediateNode.ZeroExtend zero_extend) GenerateZeroExtend(instructions, zero_extend);
 		if (instruction is IntermediateNode.Truncate truncate) GenerateTruncate(instructions, truncate);
+		if (instruction is IntermediateNode.IntegerToDouble int2double) GenerateIntegerToDouble(instructions, symbol_table, int2double);
+		if (instruction is IntermediateNode.DoubleToInteger double2int) GenerateDoubleToInteger(instructions, symbol_table, double2int);
+		if (instruction is IntermediateNode.UnsignedIntegerToDouble uint2double) GenerateUnsgnedIntegerToDouble(instructions, symbol_table, uint2double);
+		if (instruction is IntermediateNode.DoubleToUnsignedInteger double2uint) GenerateDoubleToUnsignedInteger(instructions, constants, symbol_table, double2uint);
 	}
 	
 	static void GenerateComment(List<AssemblyNode.Instruction> instructions, IntermediateNode.Comment comment) {
@@ -101,11 +152,12 @@ public static class AssemblyGenerator {
 	
 	static void GenerateReturnInstruction(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.Return instruction) {
 		AssemblyNode.Operand source = GenerateOperand(instruction.Value);
-		AssemblyNode.Operand destination = RegisterType.AX.ToOperand();
+		var type = instruction.Value.ToAssemblyType(symbol_table);
+		AssemblyNode.Operand destination = type == AssemblyType.Double ? RegisterType.XMM0.ToOperand() : RegisterType.AX.ToOperand();
 		
 		instructions.Add(
 			new AssemblyNode.MOV(
-				instruction.Value.ToAssemblyType(symbol_table),
+				type,
 				source, 
 				destination
 			)
@@ -113,17 +165,25 @@ public static class AssemblyGenerator {
 		instructions.Add(new AssemblyNode.RET());
 	}
 	
-	static void GenerateUnaryInstruction(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.UnaryInstruction instruction) {
+	static void GenerateUnaryInstruction(List<AssemblyNode.Instruction> instructions, List<AssemblyNode.StaticConstant> constants, SymbolTable symbol_table, IntermediateNode.UnaryInstruction instruction) {
 		if (instruction.Operator == Syntax.UnaryOperator.Not) {
-			// The source value has to be the left operand so the GenerateConditional function will pick the right type
-			GenerateConditional(instructions, symbol_table, instruction.Source, 0.ToIntermediateConstant(), instruction.Destination, ConditionType.E);
+			GenerateNotInstruction(instructions, symbol_table, instruction);
 			return;
 		}
 		
 		AssemblyNode.Operand source = GenerateOperand(instruction.Source);
 		AssemblyNode.Operand destination = GenerateOperand(instruction.Destination);
-		
 		var type = instruction.Source.ToAssemblyType(symbol_table);
+		
+		if (instruction.Operator == Syntax.UnaryOperator.Negation && type == AssemblyType.Double)
+		{
+			string constant_label = NextConstantLabel;
+			constants.Add(new AssemblyNode.StaticConstant(NextConstantLabel, 16, new InitialValue.FloatingPointConstant(-0)));
+			instructions.Add(new AssemblyNode.MOV(AssemblyType.Double, source, destination));
+			instructions.Add(new AssemblyNode.Binary(AssemblyType.Double, Syntax.BinaryOperator.ExclusiveOr, new AssemblyNode.DataAccess(constant_label), destination));
+			return;
+		}
+		
 		instructions.Add(
 			new AssemblyNode.MOV(
 				type,
@@ -139,21 +199,63 @@ public static class AssemblyGenerator {
 			)
 		);
 	}
+	
+	static void GenerateNotInstruction(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.UnaryInstruction instruction)
+	{
+		if (instruction.Operator != Syntax.UnaryOperator.Not) throw new Exception();
+		
+		// If it is a double comparison then we have too zero out a register using XOR
+		if (instruction.Source.ToAssemblyType(symbol_table) == AssemblyType.Double)
+		{
+			// Copy code from GenerateConditional
+			// TODO: Find a better way to handle this
+			instructions.Add(
+				new AssemblyNode.Binary(AssemblyType.Double, Syntax.BinaryOperator.ExclusiveOr, RegisterType.XMM0.ToOperand(), RegisterType.XMM0.ToOperand())
+			);
+			var result = GenerateOperand(instruction.Destination);
+			instructions.Add(
+				new AssemblyNode.CMP(
+					AssemblyType.Double,
+					GenerateOperand(instruction.Source), 
+					RegisterType.XMM0.ToOperand()
+				)
+			);
+			instructions.Add(
+				new AssemblyNode.MOV(
+					instruction.Destination.ToAssemblyType(symbol_table),
+					0.ToAssemblyImmediate(),
+					result
+				)
+			);
+			instructions.Add(new AssemblyNode.SETCC(result, ConditionType.E));
+			return;
+		}
+		
+		// If this is not a floating point operation just compare the source value to 0
+		// The source value has to be the left operand so the GenerateConditional function will pick the right type
+		GenerateConditional(instructions, symbol_table, instruction.Source, 0.ToIntermediateConstant(), instruction.Destination, ConditionType.E);
+		return;
+	}
 
 	static void GenerateBinaryInstruction(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.BinaryInstruction instruction)
 	{
 		bool is_signed = instruction.LeftOperand.GetPrimitiveType(symbol_table).IsSigned();
-		
+		bool is_double = instruction.LeftOperand.ToAssemblyType(symbol_table) == AssemblyType.Double;
 		switch (instruction.Operator)
 		{
 			case Syntax.BinaryOperator.Addition:
 			case Syntax.BinaryOperator.Subtraction:
 			case Syntax.BinaryOperator.Multiplication:
-				GenerateSimpleBinaryOperation(instructions, symbol_table, instruction);
+				GenerateSimpleBinaryInstruction(instructions, symbol_table, instruction);
 				return;
 
 			case Syntax.BinaryOperator.Division:
-				GenerateIntegerDivision(instructions, symbol_table, instruction);
+				// Floating point division can be handled by a normal binary operation
+				if (is_double)
+					GenerateSimpleBinaryInstruction(instructions, symbol_table, instruction);
+				// Integer division must be handled by a special case
+				else
+					GenerateIntegerDivision(instructions, symbol_table, instruction);
 				return;
 
 			case Syntax.BinaryOperator.Remainder:
@@ -161,19 +263,19 @@ public static class AssemblyGenerator {
 				return;
 
 			case Syntax.BinaryOperator.LogicalLess:
-				GenerateConditional(instructions, symbol_table, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, is_signed ? ConditionType.L : ConditionType.B);
+				GenerateConditional(instructions, symbol_table, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, (is_signed && !is_double) ? ConditionType.L : ConditionType.B);
 				return;
 
 			case Syntax.BinaryOperator.LogicalGreater:
-				GenerateConditional(instructions, symbol_table, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, is_signed ? ConditionType.G : ConditionType.A);
+				GenerateConditional(instructions, symbol_table, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, (is_signed && !is_double) ? ConditionType.G : ConditionType.A);
 				return;
 
 			case Syntax.BinaryOperator.LogicalLessEqual:
-				GenerateConditional(instructions, symbol_table, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, is_signed ? ConditionType.LE : ConditionType.BE);
+				GenerateConditional(instructions, symbol_table, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, (is_signed && !is_double) ? ConditionType.LE : ConditionType.BE);
 				return;
 
 			case Syntax.BinaryOperator.LogicalGreaterEqual:
-				GenerateConditional(instructions, symbol_table, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, is_signed ? ConditionType.GE : ConditionType.AE);
+				GenerateConditional(instructions, symbol_table, instruction.LeftOperand, instruction.RightOperand, instruction.Destination, (is_signed && !is_double) ? ConditionType.GE : ConditionType.AE);
 				return;
 
 			case Syntax.BinaryOperator.LogicalEqual:
@@ -188,7 +290,7 @@ public static class AssemblyGenerator {
 		throw new Exception();
 	}
 	
-	static void GenerateSimpleBinaryOperation(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.BinaryInstruction instruction) {
+	static void GenerateSimpleBinaryInstruction(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.BinaryInstruction instruction) {
 		AssemblyNode.Operand lhs = GenerateOperand(instruction.LeftOperand);
 		AssemblyNode.Operand rhs = GenerateOperand(instruction.RightOperand);
 		AssemblyNode.Operand destination = GenerateOperand(instruction.Destination);
@@ -375,10 +477,21 @@ public static class AssemblyGenerator {
 	}
 	
 	static void GenerateJumpIfZeroInstruction(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.JumpIfZero instruction) {
+		// If this is an integer comparison we can use an immediate with value '0'
+		AssemblyNode.Operand zero = 0.ToAssemblyImmediate();
+		// If it is a double comparison then we have to zero out a register using XOR
+		if (instruction.Condition.ToAssemblyType(symbol_table) == AssemblyType.Double)
+		{
+			instructions.Add(
+				new AssemblyNode.Binary(AssemblyType.Double, Syntax.BinaryOperator.ExclusiveOr, RegisterType.XMM0.ToOperand(), RegisterType.XMM0.ToOperand())
+			);
+			zero = RegisterType.XMM0.ToOperand();
+		}
+		
 		instructions.Add(
 			new AssemblyNode.CMP(
 				instruction.Condition.ToAssemblyType(symbol_table),
-				0.ToAssemblyImmediate(), 
+				zero, 
 				GenerateOperand(instruction.Condition)
 			)
 		);
@@ -391,10 +504,21 @@ public static class AssemblyGenerator {
 	}
 	
 	static void GenerateJumpIfNotZeroInstruction(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.JumpIfNotZero instruction) {
+		// If this is an integer comparison we can use an immediate with value '0'
+		AssemblyNode.Operand zero = 0.ToAssemblyImmediate();
+		// If it is a double comparison then we have to zero out a register using XOR
+		if (instruction.Condition.ToAssemblyType(symbol_table) == AssemblyType.Double)
+		{
+			instructions.Add(
+				new AssemblyNode.Binary(AssemblyType.Double, Syntax.BinaryOperator.ExclusiveOr, RegisterType.XMM0.ToOperand(), RegisterType.XMM0.ToOperand())
+			);
+			zero = RegisterType.XMM0.ToOperand();
+		}
+		
 		instructions.Add(
 			new AssemblyNode.CMP(
 				instruction.Condition.ToAssemblyType(symbol_table),
-				0.ToAssemblyImmediate(), 
+				zero, 
 				GenerateOperand(instruction.Condition)
 			)
 		);
@@ -422,9 +546,11 @@ public static class AssemblyGenerator {
 
 	static void GenerateFunctionCall(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.FunctionCall function_call)
 	{
+		(var integer_register_arguments, var double_register_arguments, var stack_arguments) = ClassifyFunctionParameters(symbol_table, function_call.Arguments);
+
 		// Ensure stack is 16-byte aligned
 		int stack_padding = 0;
-		if ((function_call.Arguments.Length - 6) % 2 != 0)
+		if (stack_arguments.Count % 2 != 0)
 		{
 			stack_padding += 8;
 			instructions.Add(
@@ -437,31 +563,44 @@ public static class AssemblyGenerator {
 			);
 		}
 
-		// Frst 6 arguments are copied to registers
-		for (int i = 0; i < 6 && i < function_call.Arguments.Length; i++)
+		// Copy first 6 integer arguments into general-purpose registers
+		for (int i = 0; i < integer_register_arguments.Count; i++)
 		{
+			(var type, var operand) = integer_register_arguments[i];
 			instructions.Add(
 				new AssemblyNode.MOV(
-					function_call.Arguments[i].ToAssemblyType(symbol_table),
-					GenerateOperand(function_call.Arguments[i]),
-					RegisterTypeExtensions.FunctionCallOrder[i].ToOperand()
+					type,
+					operand,
+					RegisterTypeExtensions.integer_function_call_order[i].ToOperand()
+				)
+			);
+		}
+		
+		// Copy first 8 double arguments into floating pont registers
+		for (int i = 0; i < double_register_arguments.Count; i++)
+		{
+			var operand = double_register_arguments[i];
+			instructions.Add(
+				new AssemblyNode.MOV(
+					AssemblyType.Double,
+					operand,
+					RegisterTypeExtensions.double_function_call_order[i].ToOperand()
 				)
 			);
 		}
 
 		// The rest of the arguments are pushed to the stack in reverse order
-		for (int i = function_call.Arguments.Length - 1; i >= 6; i--)
+		for (int i = stack_arguments.Count - 1; i >= 0; i--)
 		{
 			stack_padding += 8;
-			AssemblyNode.Operand operand = GenerateOperand(function_call.Arguments[i]);
-			// TODO: Idk if the ToDataType business works here
-			if (operand is AssemblyNode.Register || operand is AssemblyNode.Immediate || function_call.Arguments[i].ToAssemblyType(symbol_table) == AssemblyType.QuadWord)
+			(var type, var operand) = stack_arguments[i];
+			if (type == AssemblyType.QuadWord || type == AssemblyType.Double)
 			{
 				instructions.Add(new AssemblyNode.Push(operand));
-			}
+			} 
 			else
 			{
-				instructions.Add(new AssemblyNode.MOV(AssemblyType.LongWord, operand, RegisterType.AX.ToOperand()));
+				instructions.Add(new AssemblyNode.MOV(type, operand, RegisterType.AX.ToOperand()));
 				instructions.Add(new AssemblyNode.Push(RegisterType.AX.ToOperand()));
 			}
 		}
@@ -472,13 +611,25 @@ public static class AssemblyGenerator {
 		if (stack_padding != 0) instructions.Add(new AssemblyNode.Binary(AssemblyType.QuadWord, Syntax.BinaryOperator.Addition, stack_padding.ToAssemblyImmediate(), RegisterType.SP.ToOperand()));
 
 		// Retrieve return value
-		instructions.Add(
-			new AssemblyNode.MOV(
-				function_call.Destination.ToAssemblyType(symbol_table), 
-				RegisterType.AX.ToOperand(), 
-				GenerateOperand(function_call.Destination)
-			)
-		);
+		var return_type = function_call.Destination.ToAssemblyType(symbol_table);
+		if (return_type == AssemblyType.Double)
+		{
+			instructions.Add(
+				new AssemblyNode.MOV(
+					AssemblyType.Double, 
+					RegisterType.XMM0.ToOperand(), 
+					GenerateOperand(function_call.Destination)
+				)
+			);
+		} else {
+			instructions.Add(
+				new AssemblyNode.MOV(
+					return_type, 
+					RegisterType.AX.ToOperand(), 
+					GenerateOperand(function_call.Destination)
+				)
+			);
+		}
 	}
 	
 	static void GenerateSignExtend(List<AssemblyNode.Instruction> instructions, IntermediateNode.SignExtend sign_extend)
@@ -518,6 +669,204 @@ public static class AssemblyGenerator {
 		);
 	}
 	
+	static void GenerateIntegerToDouble(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.IntegerToDouble instruction)
+	{
+		instructions.Add(
+			new AssemblyNode.CVTSI2SD(
+				instruction.Source.ToAssemblyType(symbol_table), 
+				GenerateOperand(instruction.Source), 
+				GenerateOperand(instruction.Destination)
+			)
+		);
+	}
+	
+	static void GenerateDoubleToInteger(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.DoubleToInteger instruction)
+	{
+		instructions.Add(
+			new AssemblyNode.CVTTSD2SI(
+				instruction.Destination.ToAssemblyType(symbol_table), 
+				GenerateOperand(instruction.Source), 
+				GenerateOperand(instruction.Destination)
+			)
+		);
+	}
+	
+	static void GenerateUnsgnedIntegerToDouble(List<AssemblyNode.Instruction> instructions, SymbolTable symbol_table, IntermediateNode.UnsignedIntegerToDouble instruction)
+	{
+		if (instruction.Source.ToAssemblyType(symbol_table) == AssemblyType.LongWord)
+		{
+			instructions.Add(
+				new AssemblyNode.MOVZ(
+					GenerateOperand(instruction.Source), 
+					RegisterType.DX.ToOperand()
+				)
+			);
+			instructions.Add(
+				new AssemblyNode.CVTSI2SD(
+					AssemblyType.QuadWord, 
+					RegisterType.DX.ToOperand(), 
+					GenerateOperand(instruction.Destination)
+				)
+			);
+			return;
+		}
+		
+		instructions.Add(
+			new AssemblyNode.CMP(
+				AssemblyType.QuadWord,
+				0.ToAssemblyImmediate(),
+				GenerateOperand(instruction.Source)
+			)
+		);
+		var label1 = IntermediateGenerator.NextTemporaryLabel;
+		instructions.Add(new AssemblyNode.JMPCC(label1.Identifier, ConditionType.L));
+		instructions.Add(
+			new AssemblyNode.CVTSI2SD(
+				AssemblyType.QuadWord,
+				GenerateOperand(instruction.Source),
+				GenerateOperand(instruction.Destination)
+			)
+		);
+		var label2 = IntermediateGenerator.NextTemporaryLabel;
+		instructions.Add(new AssemblyNode.JMP(label2.Identifier));
+		instructions.Add(new AssemblyNode.Label(label1.Identifier));
+		instructions.Add(
+			new AssemblyNode.MOV(
+				AssemblyType.QuadWord,
+				GenerateOperand(instruction.Source),
+				RegisterType.DX.ToOperand()
+			)
+		);
+		instructions.Add(
+			new AssemblyNode.MOV(
+				AssemblyType.QuadWord,
+				RegisterType.DX.ToOperand(),
+				RegisterType.CX.ToOperand()
+			)
+		);
+		instructions.Add(
+			new AssemblyNode.Unary(
+				AssemblyType.QuadWord,
+				Syntax.UnaryOperator.ShiftRight,
+				RegisterType.CX.ToOperand()
+			)
+		);
+		instructions.Add(
+			new AssemblyNode.Binary(
+				AssemblyType.QuadWord,
+				Syntax.BinaryOperator.BitwiseAnd,
+				1.ToAssemblyImmediate(),
+				RegisterType.DX.ToOperand()
+			)
+		);
+		instructions.Add(
+			new AssemblyNode.Binary(
+				AssemblyType.QuadWord,
+				Syntax.BinaryOperator.BitwiseOr,
+				RegisterType.DX.ToOperand(),
+				RegisterType.CX.ToOperand()
+			)
+		);
+		instructions.Add(
+			new AssemblyNode.CVTSI2SD(
+				AssemblyType.QuadWord,
+				RegisterType.CX.ToOperand(),
+				GenerateOperand(instruction.Destination)
+			)
+		);
+		instructions.Add(
+			new AssemblyNode.Binary(
+				AssemblyType.Double,
+				Syntax.BinaryOperator.Addition,
+				GenerateOperand(instruction.Destination),
+				GenerateOperand(instruction.Destination)
+			)
+		);
+		instructions.Add(new AssemblyNode.Label(label2.Identifier));
+	}
+	
+	static void GenerateDoubleToUnsignedInteger(List<AssemblyNode.Instruction> instructions, List<AssemblyNode.StaticConstant> constants, SymbolTable symbol_table, IntermediateNode.DoubleToUnsignedInteger instruction)
+	{
+		if (instruction.Source.ToAssemblyType(symbol_table) == AssemblyType.LongWord)
+		{
+			instructions.Add(
+				new AssemblyNode.CVTTSD2SI(
+					AssemblyType.QuadWord, 
+					GenerateOperand(instruction.Source), 
+					RegisterType.DX.ToOperand()
+				)
+			);
+			instructions.Add(
+				new AssemblyNode.MOV(
+					AssemblyType.LongWord,
+					RegisterType.DX.ToOperand(),
+					GenerateOperand(instruction.Destination)
+				)
+			);
+			return;
+		}
+		
+		var upper_bound_label = NextConstantLabel;
+		constants.Add(new AssemblyNode.StaticConstant(upper_bound_label, 8, new InitialValue.FloatingPointConstant(9223372036854775808.0)));
+		instructions.Add(
+			new AssemblyNode.CMP(
+				AssemblyType.QuadWord,
+				new AssemblyNode.DataAccess(upper_bound_label),
+				GenerateOperand(instruction.Source)
+			)
+		);
+		var label1 = IntermediateGenerator.NextTemporaryLabel;
+		instructions.Add(new AssemblyNode.JMPCC(label1.Identifier, ConditionType.AE));
+		instructions.Add(
+			new AssemblyNode.CVTTSD2SI(
+				AssemblyType.QuadWord,
+				GenerateOperand(instruction.Source),
+				GenerateOperand(instruction.Destination)
+			)
+		);
+		var label2 = IntermediateGenerator.NextTemporaryLabel;
+		instructions.Add(new AssemblyNode.JMP(label2.Identifier));
+		instructions.Add(new AssemblyNode.Label(label1.Identifier));
+		instructions.Add(
+			new AssemblyNode.MOV(
+				AssemblyType.Double,
+				GenerateOperand(instruction.Source),
+				RegisterType.XMM7.ToOperand()
+			)
+		);
+		instructions.Add(
+			new AssemblyNode.Binary(
+				AssemblyType.Double,
+				Syntax.BinaryOperator.Subtraction,
+				new AssemblyNode.DataAccess(upper_bound_label),
+				RegisterType.XMM7.ToOperand()
+			)
+		);
+		instructions.Add(
+			new AssemblyNode.CVTTSD2SI(
+				AssemblyType.QuadWord,
+				RegisterType.XMM7.ToOperand(),
+				GenerateOperand(instruction.Destination)
+			)
+		);
+		instructions.Add(
+			new AssemblyNode.MOV(
+				AssemblyType.QuadWord,
+				9223372036854775808.ToAssemblyImmediate(),
+				RegisterType.DX.ToOperand()
+			)
+		);
+		instructions.Add(
+			new AssemblyNode.Binary(
+				AssemblyType.QuadWord,
+				Syntax.BinaryOperator.Addition,
+				RegisterType.DX.ToOperand(),
+				GenerateOperand(instruction.Destination)
+			)
+		);
+		instructions.Add(new AssemblyNode.Label(label2.Identifier));
+	}
+	
 	static AssemblyNode.Operand GenerateOperand(IntermediateNode.Operand operand)
 	{
 		if (operand is IntermediateNode.Constant constant) return GenerateConstant(constant);
@@ -531,6 +880,31 @@ public static class AssemblyGenerator {
 	
 	static AssemblyNode.PseudoRegister GenerateVariable(IntermediateNode.Variable operand) {
 		return new AssemblyNode.PseudoRegister(operand.Identifier);
+	}
+	
+	static (List<(AssemblyType, AssemblyNode.Operand)>, List<AssemblyNode.Operand>, List<(AssemblyType, AssemblyNode.Operand)>) ClassifyFunctionParameters(SymbolTable symbol_table, IntermediateNode.Operand[] parameters)
+	{
+		List<(AssemblyType, AssemblyNode.Operand)> integer_register_arguments = [];
+		List<AssemblyNode.Operand> double_register_arguments = [];
+		List<(AssemblyType, AssemblyNode.Operand)> stack_arguments = [];
+		
+		foreach (var parameter in parameters)
+		{
+			var operand = GenerateOperand(parameter);
+			var type = parameter.ToAssemblyType(symbol_table);
+			
+			if (type == AssemblyType.Double)
+			{
+				if (double_register_arguments.Count < 8) double_register_arguments.Add(operand);
+				else stack_arguments.Add((AssemblyType.Double, operand));
+			} else
+			{
+				if (integer_register_arguments.Count < 6) integer_register_arguments.Add((type, operand));
+				else stack_arguments.Add((type, operand));
+			}
+		}
+		
+		return (integer_register_arguments, double_register_arguments, stack_arguments);
 	}
 	
 	public static AssemblyType ToAssemblyType(this IntermediateNode.Operand operand, SymbolTable symbol_table)

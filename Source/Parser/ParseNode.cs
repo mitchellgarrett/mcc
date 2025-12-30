@@ -191,18 +191,35 @@ public static class ParseNode {
 
 	public class Factor : Expression { }
 	
-	public class Constant : Factor
+	public class Constant : Factor;
+	
+	public class IntegerConstant : Constant
 	{
 		public readonly BigInteger Value;
 		
-		public Constant(PrimitiveType type, BigInteger value)
+		public IntegerConstant(PrimitiveType type, BigInteger value)
 		{
 			ReturnType = type;
 			Value = value;
 		}
 		
 		public override string ToString() {
-			return $"Constant({ReturnType}, {Value})";
+			return $"IntegerConstant({ReturnType}, {Value})";
+		}
+	}
+	
+	public class FloatingPointConstant : Constant
+	{
+		public readonly double Value;
+		
+		public FloatingPointConstant(double value)
+		{
+			ReturnType = PrimitiveType.Double;
+			Value = value;
+		}
+		
+		public override string ToString() {
+			return $"FloatingPointConstant({ReturnType}, {Value})";
 		}
 	}
 	

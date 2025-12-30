@@ -27,14 +27,39 @@ public abstract class InitialValue
 	public class None : InitialValue { }
 	public class Tentative : InitialValue { }
 	
-	public class Constant(PrimitiveType type, BigInteger value) : InitialValue
+	public abstract class Constant(PrimitiveType type) : InitialValue
 	{
 		public readonly PrimitiveType Type = type;
+		public abstract string ToCommentString();
+	}
+	
+	public class IntegerConstant(PrimitiveType type, BigInteger value) : Constant(type)
+	{
 		public BigInteger Value = value;
+		
+		public override string ToCommentString()
+		{
+			return Value.ToString();
+		}
 
 		public override string ToString()
 		{
-			return $"Constant({Type}, {Value})";
+			return $"IntegerConstant({Type}, {Value})";
+		}
+	}
+	
+	public class FloatingPointConstant(double value) : Constant(PrimitiveType.Double)
+	{
+		public double Value = value;
+		
+		public override string ToCommentString()
+		{
+			return Value.ToString();
+		}
+
+		public override string ToString()
+		{
+			return $"FloatingPointConstant({Type}, {Value})";
 		}
 	}
 }
