@@ -246,7 +246,7 @@ public static partial class AssemblyNode
 				Syntax.BinaryOperator.Subtraction => $"sub{Type.GetSuffix()} {Source.Emit(Type)}, {Destination.Emit(Type)}",
 				Syntax.BinaryOperator.Multiplication => Type == AssemblyType.Double ? $"mulsd {Source.Emit(Type)}, {Destination.Emit(Type)}" : $"imul{Type.GetSuffix()} {Source.Emit(Type)}, {Destination.Emit(Type)}",
 				// This should only be floating point division
-				Syntax.BinaryOperator.Division => $"imul{Type.GetSuffix()} {Source.Emit(Type)}, {Destination.Emit(Type)}",
+				Syntax.BinaryOperator.Division => $"div{Type.GetSuffix()} {Source.Emit(Type)}, {Destination.Emit(Type)}",
 				Syntax.BinaryOperator.BitwiseAnd => $"and {Source.Emit(Type)}, {Destination.Emit(Type)}",
 				Syntax.BinaryOperator.BitwiseOr => $"or {Source.Emit(Type)}, {Destination.Emit(Type)}",
 				Syntax.BinaryOperator.ExclusiveOr => $"xorpd {Source.Emit(Type)}, {Destination.Emit(Type)}",
@@ -256,7 +256,7 @@ public static partial class AssemblyNode
 
 		public override string ToString()
 		{
-			return $"Binary({Operator}, {Source}, {Destination})";
+			return $"Binary({Type}, {Operator}, {Source}, {Destination})";
 		}
 	}
 
@@ -302,7 +302,7 @@ public static partial class AssemblyNode
 
 		public override string Emit()
 		{
-			return $"cvtsi2sd{DestinationType.GetSuffix()} {Source.Emit(DestinationType)}, {Destination.Emit(DestinationType)}";
+			return $"cvttsd2si{DestinationType.GetSuffix()} {Source.Emit(AssemblyType.Double)}, {Destination.Emit(DestinationType)}";
 		}
 
 		public override string ToString()
@@ -319,7 +319,7 @@ public static partial class AssemblyNode
 
 		public override string Emit()
 		{
-			return $"cvtsisd{SourceType.GetSuffix()} {Source.Emit(SourceType)}, {Destination.Emit(SourceType)}";
+			return $"cvtsi2sd{SourceType.GetSuffix()} {Source.Emit(SourceType)}, {Destination.Emit(AssemblyType.Double)}";
 		}
 
 		public override string ToString()

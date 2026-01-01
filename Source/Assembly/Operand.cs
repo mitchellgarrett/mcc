@@ -22,6 +22,7 @@ public static partial class AssemblyNode
 			{
 				AssemblyType.LongWord => Value.Emit32(),
 				AssemblyType.QuadWord => Value.Emit64(),
+				AssemblyType.Double => Value.Emit64(),
 				_ => throw new System.Exception(),
 			};
 		}
@@ -112,6 +113,22 @@ public static partial class AssemblyNode
 		public override string ToString()
 		{
 			return $"Data(\"{Identifier}\")";
+		}
+	}
+	
+	public class ConstantAccess(string identifier) : MemoryAccess
+	{
+		public readonly string Identifier = identifier;
+
+		public override string Emit(AssemblyType type)
+		{
+			if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) return $"L{Identifier}(%rip)";
+			return $".L{Identifier}(%rip)";
+		}
+
+		public override string ToString()
+		{
+			return $"Constant(\"{Identifier}\")";
 		}
 	}
 }

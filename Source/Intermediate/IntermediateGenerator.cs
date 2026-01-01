@@ -52,7 +52,7 @@ public static class IntermediateGenerator {
 		{
 			if (entry.Attributes is IdentifierAttributes.Static static_attributes)
 			{
-				if (static_attributes.InitialValue is InitialValue.IntegerConstant constant) {
+				if (static_attributes.InitialValue is InitialValue.Constant constant) {
 					static_variables.Add(new IntermediateNode.StaticVariable(identifier, static_attributes.IsGlobal, constant));
 				} else if (static_attributes.InitialValue is InitialValue.Tentative) {
 					static_variables.Add(new IntermediateNode.StaticVariable(identifier, static_attributes.IsGlobal, new InitialValue.IntegerConstant(entry.ReturnType, 0)));
@@ -282,7 +282,8 @@ public static class IntermediateGenerator {
 	{
 		if (factor is ParseNode.Cast cast) return GenerateCast(instructions, symbol_table, cast);
 		if (factor is ParseNode.UnaryExpression unaryExpression) return GenerateUnaryExpression(instructions, symbol_table, unaryExpression);
-		if (factor is ParseNode.IntegerConstant constant) return new IntermediateNode.Constant(constant.ReturnType, constant.Value);
+		if (factor is ParseNode.IntegerConstant integer) return new IntermediateNode.IntegerConstant(integer.ReturnType, integer.Value);
+		if (factor is ParseNode.FloatingPointConstant @double) return new IntermediateNode.FloatingPointConstant(@double.Value);
 		if (factor is ParseNode.Variable variable) return new IntermediateNode.Variable(variable.Identifier.Value);
 		
 		throw new IntermediateGeneratorException("GenerateFactor", factor.GetType(), factor, typeof(ParseNode.UnaryExpression), typeof(ParseNode.IntegerConstant), typeof(ParseNode.Variable));
@@ -290,10 +291,10 @@ public static class IntermediateGenerator {
 	
 	static IntermediateNode.Operand GenerateCast(List<IntermediateNode.Instruction> instructions, SymbolTable symbol_table, ParseNode.Cast cast)
 	{
-		IntermediateNode.Operand value = GenerateExpression(instructions, symbol_table, cast.Expression);
+		var value = GenerateExpression(instructions, symbol_table, cast.Expression);
 		if (cast.ReturnType == cast.Expression.ReturnType) return value;
 		
-		IntermediateNode.Variable destination = NextTemporaryVariable(symbol_table, cast.ReturnType);
+		var destination = NextTemporaryVariable(symbol_table, cast.ReturnType);
 		
 		instructions.Add(new IntermediateNode.Comment($"({cast.ReturnType}) {cast.Expression}"));
 		
@@ -306,13 +307,14 @@ public static class IntermediateGenerator {
 				instructions.Add(new IntermediateNode.UnsignedIntegerToDouble(value, destination));
 		}
 		// If casting from a double to an integer, use either DoubleToInteger or UnsignedDoubleToInteger
-		if (cast.ReturnType != PrimitiveType.Double && cast.Expression.ReturnType == PrimitiveType.Double)
+		else if (cast.ReturnType != PrimitiveType.Double && cast.Expression.ReturnType == PrimitiveType.Double)
 		{
 			if (cast.ReturnType.IsSigned())
 				instructions.Add(new IntermediateNode.DoubleToInteger(value, destination));
 			else
 				instructions.Add(new IntermediateNode.DoubleToUnsignedInteger(value, destination));
 		}
+		
 		// If casting to a destination of the same size, simply copy the value to its destination
 		else if (cast.ReturnType.GetSize() == cast.Expression.ReturnType.GetSize())
 			instructions.Add(new IntermediateNode.Copy(value, destination));

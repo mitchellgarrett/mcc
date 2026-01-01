@@ -77,19 +77,9 @@ public static class TypeChecker
 		InitialValue initial_value;
 		// TODO: This shoould convert to the destination type
 		if (declaration.Source is ParseNode.IntegerConstant integer)
-		{
-			if (integer.ReturnType == PrimitiveType.Long) {
-				// Handle case where variable is declared as an int but value is given as a long
-				if (declaration.VariableType == PrimitiveType.Integer) initial_value = new InitialValue.IntegerConstant(PrimitiveType.Integer, int.CreateTruncating(integer.Value));
-				else initial_value = new InitialValue.IntegerConstant(PrimitiveType.Long, integer.Value);
-			}
-			else
-				initial_value = new InitialValue.IntegerConstant(integer.ReturnType, integer.Value);
-		}
+			initial_value = ConvertConstantToType(declaration.VariableType, new InitialValue.IntegerConstant(integer.ReturnType, integer.Value));
 		else if (declaration.Source is ParseNode.FloatingPointConstant @double)
-		{
-			initial_value = new InitialValue.FloatingPointConstant(@double.Value);
-		}
+			initial_value = ConvertConstantToType(declaration.VariableType, new InitialValue.FloatingPointConstant(@double.Value));
 		else if (declaration.Source == null)
 		{
 			if (declaration.StorageClass == StorageClass.Extern) initial_value = new InitialValue.None();
@@ -289,7 +279,7 @@ public static class TypeChecker
 		}
 		
 		// Return types for constants are set by the parser
-		if (expression is ParseNode.IntegerConstant) return;
+		if (expression is ParseNode.Constant) return;
 		
 		throw new SemanticAnalzyerException($"Unhandled expression type \"{expression}\"", expression.ToString());
 	}
@@ -431,17 +421,19 @@ public static class TypeChecker
 		return new ParseNode.Cast(target_type, expression);
 	}
 	
-	static InitialValue GenerateInitialValue(PrimitiveType type, ParseNode.Constant constant)
+	static InitialValue ConvertConstantToType(PrimitiveType type, InitialValue.Constant constant)
 	{
 		if (type == PrimitiveType.Double)
 		{
-			if (constant is ParseNode.IntegerConstant integer_to_double) return new InitialValue.FloatingPointConstant((double)integer_to_double.Value);
-			else if (constant is ParseNode.FloatingPointConstant @double) return new InitialValue.FloatingPointConstant(@double.Value);
+			if (constant is InitialValue.IntegerConstant integer_to_double)
+				// Cast to decimal first to maintain precision
+				return new InitialValue.FloatingPointConstant((double)(decimal)integer_to_double.Value);
+			else if (constant is InitialValue.FloatingPointConstant) return constant;
 			else throw new System.Exception();
 		}
 		
-		if (constant is ParseNode.IntegerConstant integer) return new InitialValue.IntegerConstant(type, integer.Value);
-		else if (constant is ParseNode.FloatingPointConstant @double) {
+		if (constant is InitialValue.IntegerConstant integer) return new InitialValue.IntegerConstant(type, integer.Value);
+		else if (constant is InitialValue.FloatingPointConstant @double) {
 			return type switch
 			{
 				PrimitiveType.Integer => new InitialValue.IntegerConstant(type, int.CreateTruncating(@double.Value)),

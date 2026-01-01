@@ -57,6 +57,13 @@ public static class VariableAccessFixer
 			instructions.Insert(index, new AssemblyNode.MOV(instruction.Type, instruction.Source, RegisterType.R10.ToOperand()));
 			instruction.Source = RegisterType.R10.ToOperand();
 		}
+		
+		// MOVSD can't move immediates into memory
+		if (instruction.Source is AssemblyNode.Immediate && instruction.Destination is AssemblyNode.MemoryAccess && instruction.Type == AssemblyType.Double)
+		{
+			instructions.Insert(index, new AssemblyNode.MOV(instruction.Type, instruction.Source, RegisterType.XMM14.ToOperand()));
+			instruction.Source = RegisterType.XMM14.ToOperand();
+		}
 	}
 	
 	static void FixVariableAccessesMOVSX(List<AssemblyNode.Instruction> instructions, int index) {
@@ -120,17 +127,19 @@ public static class VariableAccessFixer
 		
 		// CMP can't have memory locations as both operands
 		if (instruction.LeftOperand is AssemblyNode.MemoryAccess && instruction.RightOperand is AssemblyNode.MemoryAccess memory_access) {
-			instructions.Insert(index++, new AssemblyNode.MOV(instruction.Type, memory_access, RegisterType.R10.ToOperand()));
-			instruction.RightOperand = RegisterType.R10.ToOperand();
+			var register = instruction.Type == AssemblyType.Double ? RegisterType.XMM15.ToOperand() : RegisterType.R11.ToOperand();
+			instructions.Insert(index++, new AssemblyNode.MOV(instruction.Type, memory_access, register));
+			instruction.RightOperand = register;
 		}
 		
 		// CMP can't have immediate as second operand
 		if (instruction.RightOperand is AssemblyNode.Immediate immediate) {
-			instructions.Insert(index++, new AssemblyNode.MOV(instruction.Type, immediate, RegisterType.R11.ToOperand()));
-			instruction.RightOperand = RegisterType.R11.ToOperand();
+			var register = instruction.Type == AssemblyType.Double ? RegisterType.XMM15.ToOperand() : RegisterType.R11.ToOperand();
+			instructions.Insert(index++, new AssemblyNode.MOV(instruction.Type, immediate, register));
+			instruction.RightOperand = register;
 		}
 
-		// CMPISD must have a register as its destination
+		// COMISD must have a register as its destination
 		if (instruction.Type == AssemblyType.Double && instruction.RightOperand is not AssemblyNode.Register)
 		{
 			instructions.Insert(index++, new AssemblyNode.MOV(AssemblyType.Double, instruction.RightOperand, RegisterType.XMM15.ToOperand()));
@@ -181,53 +190,57 @@ public static class VariableAccessFixer
 		}
 		
 		// IMUL can't have destination as a memory location
-		if (instruction.Operator == Syntax.BinaryOperator.Multiplication && instruction.Destination is AssemblyNode.MemoryAccess destination) {
-			instructions.Insert(index, new AssemblyNode.MOV(instruction.Type, destination, RegisterType.R11.ToOperand()));
-			instruction.Destination = RegisterType.R11.ToOperand();
-			instructions.Insert(index + 2, new AssemblyNode.MOV(instruction.Type, RegisterType.R11.ToOperand(), destination));
+		if (instruction.Operator == Syntax.BinaryOperator.Multiplication && instruction.Destination is AssemblyNode.MemoryAccess) {
+			var register = instruction.Type == AssemblyType.Double ? RegisterType.XMM14.ToOperand() : RegisterType.R11.ToOperand();
+			instructions.Insert(index++, new AssemblyNode.MOV(instruction.Type, instruction.Destination, register));
+			instructions.Insert(++index, new AssemblyNode.MOV(instruction.Type, register, instruction.Destination));
+			instruction.Destination = register;
 		}
 		
 		// ADD/SUB/AND/OR can't have both operands be memory locations
 		if (
 			(instruction.Operator == Syntax.BinaryOperator.Addition || instruction.Operator == Syntax.BinaryOperator.Subtraction || instruction.Operator == Syntax.BinaryOperator.BitwiseAnd || instruction.Operator == Syntax.BinaryOperator.BitwiseOr) &&
-			instruction.Source is AssemblyNode.MemoryAccess source && instruction.Destination is AssemblyNode.MemoryAccess
+			instruction.Source is AssemblyNode.MemoryAccess && instruction.Destination is AssemblyNode.MemoryAccess
 		) {
-			instruction.Source = RegisterType.R10.ToOperand();
-			instructions.Insert(index, new AssemblyNode.MOV(instruction.Type, source, RegisterType.R10.ToOperand()));
+			var register = instruction.Type == AssemblyType.Double ? RegisterType.XMM14.ToOperand() : RegisterType.R10.ToOperand();
+			instructions.Insert(index++, new AssemblyNode.MOV(instruction.Type, instruction.Source, register));
+			instruction.Source = register;
 		}
 		
 		// ADDSD/SUBSD/MULSD/DIVSD/XORPD must have registers as their destinations
-		if (instruction.Type == AssemblyType.Double)
+		if (instruction.Type == AssemblyType.Double && instruction.Destination is not AssemblyNode.Register)
 		{
-			instructions.Insert(index, new AssemblyNode.MOV(AssemblyType.Double, instruction.Source, RegisterType.XMM15.ToOperand()));
+			instructions.Insert(index++, new AssemblyNode.MOV(AssemblyType.Double, instruction.Destination, RegisterType.XMM15.ToOperand()));
+			instructions.Insert(++index, new AssemblyNode.MOV(AssemblyType.Double, RegisterType.XMM15.ToOperand(), instruction.Destination));
 			instruction.Destination = RegisterType.XMM15.ToOperand();
 		}
 	}
 	
 	static void FixVariableAccessesCVTSI2SD(List<AssemblyNode.Instruction> instructions, int index) {
 		AssemblyNode.CVTSI2SD instruction = instructions[index] as AssemblyNode.CVTSI2SD;
+		// CVTSI2SD cannot have an immediate as its source
+		if (instruction.Source is AssemblyNode.Immediate)
+		{
+			instructions.Insert(index++, new AssemblyNode.MOV(instruction.SourceType, instruction.Source, RegisterType.R10.ToOperand()));
+			instruction.Source = RegisterType.R10.ToOperand();
+		}
+		
 		// CVTSI2SD must have a register as its destination
 		if (instruction.Destination is not AssemblyNode.Register)
 		{
-			instructions.Insert(index + 1, new AssemblyNode.MOV(AssemblyType.QuadWord, RegisterType.R11.ToOperand(), instruction.Destination));
-			instruction.Destination = RegisterType.R11.ToOperand();
+			instructions.Insert(++index, new AssemblyNode.MOV(AssemblyType.Double, RegisterType.XMM15.ToOperand(), instruction.Destination));
+			instruction.Destination = RegisterType.XMM15.ToOperand();
 		}
 	}
 	
 	static void FixVariableAccessesCVTTSD2SI(List<AssemblyNode.Instruction> instructions, int index) {
 		AssemblyNode.CVTTSD2SI instruction = instructions[index] as AssemblyNode.CVTTSD2SI;
-		// CVTTSD2SI cannot have an immediate as its source
-		if (instruction.Destination is AssemblyNode.Immediate)
-		{
-			instructions.Insert(index++, new AssemblyNode.MOV(AssemblyType.LongWord, instruction.Source, RegisterType.R10.ToOperand()));
-			instruction.Source = RegisterType.R10.ToOperand();
-		}
 		
 		// CVTTSD2SI must have a register as its destination
 		if (instruction.Destination is not AssemblyNode.Register)
 		{
-			instructions.Insert(index + 1, new AssemblyNode.MOV(AssemblyType.Double, RegisterType.XMM15.ToOperand(), instruction.Destination));
-			instruction.Destination = RegisterType.XMM15.ToOperand();
+			instructions.Insert(index + 1, new AssemblyNode.MOV(instruction.DestinationType, RegisterType.R11.ToOperand(), instruction.Destination));
+			instruction.Destination = RegisterType.R11.ToOperand();
 		}
 	}
 }

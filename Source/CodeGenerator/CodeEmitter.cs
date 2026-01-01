@@ -71,6 +71,7 @@ public static class CodeEmitter
 		if (is_zero) EmitZeroInitializer(variable.Alignment, identifier, file);
 		// Non-zero integer and all double variables go in the data section
 		else EmitNonZeroInitializer(variable.InitialValue, variable.Alignment, identifier, file);
+		file.WriteLine();
 	}
 	
 	static void EmitZeroInitializer(int alignment, string identifier, StreamWriter file)
@@ -102,7 +103,7 @@ public static class CodeEmitter
 		{
 			identifier = $"L{identifier}";
 			file.WriteLine($".literal{constant.Alignment}");
-			file.WriteLine($".balign{constant.Alignment}");
+			file.WriteLine($".balign {constant.Alignment}");
 		}
 		else
 		{
@@ -117,13 +118,16 @@ public static class CodeEmitter
 		// Print out 8 zero bytes at end of MacOS .literal16 section to ensure it is 16-byte aligned
 		if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) && constant.Alignment == 16)
 			file.WriteLine(".quad 0");
+		file.WriteLine();
 	}
 	
 	static void EmitValue(InitialValue.Constant constant, int alignment, StreamWriter file)
 	{
 		if (constant is InitialValue.FloatingPointConstant @double)
 		{
-			file.WriteLine($".double {@double.Value}");
+			if (double.IsPositiveInfinity(@double.Value)) file.WriteLine($"// infinity\n.quad 0x7FF0000000000000");
+			else if (double.IsNegativeInfinity(@double.Value)) file.WriteLine($"// negative infinity\n.quad 0xFFF0000000000000");
+			else file.WriteLine($".double {@double.Value:G19}");
 		} else
 		{
 			var integer = constant as InitialValue.IntegerConstant;

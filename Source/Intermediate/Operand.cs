@@ -13,10 +13,39 @@ public static partial class IntermediateNode
 		public abstract string ToCommentString();
 	}
 
-	public class Constant(PrimitiveType type, BigInteger value) : Operand
+	public abstract class Constant(PrimitiveType type) : Operand
 	{
 		public readonly PrimitiveType Type = type;
+		
+		public override PrimitiveType GetPrimitiveType(SymbolTable symbol_table)
+		{
+			return Type;
+		}
+	}
+	
+	public class IntegerConstant(PrimitiveType type, BigInteger value) : Constant(type)
+	{
 		public readonly BigInteger Value = value;
+
+		public override PrimitiveType GetPrimitiveType(SymbolTable symbol_table)
+		{
+			return Type;
+		}
+
+		public override string ToCommentString()
+		{
+			return Value.ToString();
+		}
+
+		public override string ToString()
+		{
+			return $"Constant({Type}, {Value})";
+		}
+	}
+	
+	public class FloatingPointConstant(double value) : Constant(PrimitiveType.Double)
+	{
+		public readonly double Value = value;
 		
 		public override PrimitiveType GetPrimitiveType(SymbolTable symbol_table)
 		{
@@ -34,14 +63,14 @@ public static partial class IntermediateNode
 		}
 	}
 
-	public static Constant ToIntermediateConstant(this int value)
+	public static IntegerConstant ToIntermediateConstant(this int value)
 	{
-		return new Constant(PrimitiveType.Integer, value);
+		return new IntegerConstant(PrimitiveType.Integer, value);
 	}
 	
-	public static Constant ToIntermediateConstant(this long value)
+	public static IntegerConstant ToIntermediateConstant(this long value)
 	{
-		return new Constant(PrimitiveType.Long, value);
+		return new IntegerConstant(PrimitiveType.Long, value);
 	}
 
 	public class Variable(string identifier) : Operand

@@ -5,10 +5,11 @@ namespace FTG.Studios.MCC.Assembly;
 
 public abstract class AssemblySymbolTableEntry;
 
-public class ObjectEntry(AssemblyType type, bool is_static) : AssemblySymbolTableEntry
+public class ObjectEntry(AssemblyType type, bool is_static, bool is_constant) : AssemblySymbolTableEntry
 {
 	public AssemblyType Type = type;
 	public bool IsStatic = is_static;
+	public bool IsConstant = is_constant;
 }
 
 public class FunctionEntry(bool is_defined) : AssemblySymbolTableEntry
@@ -20,9 +21,9 @@ public class AssemblySymbolTable : IEnumerable<(string, AssemblySymbolTableEntry
 {
 	readonly Dictionary<string, AssemblySymbolTableEntry> symbols = [];
 
-	public void AddObject(string identifier, AssemblyType type, bool is_static)
+	public void AddObject(string identifier, AssemblyType type, bool is_static, bool is_constant)
 	{
-		symbols[identifier] = new ObjectEntry(type, is_static);
+		symbols[identifier] = new ObjectEntry(type, is_static, is_constant);
 	}
 
 	public void AddFunction(string identifier, bool is_defined)

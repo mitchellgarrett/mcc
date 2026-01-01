@@ -90,7 +90,9 @@ public static class Lexer
 			}
 			else
 			{
-				token = BuildToken(c);
+				// Need to handle the case where '+' or '-' is part of a floating point literal
+				if (!Regex.IsMatch(lexeme + c + next, Syntax.floating_point_literal))
+					token = BuildToken(c);
 			}
 
 			if (token.IsValid)
@@ -180,7 +182,7 @@ public static class Lexer
 		
 		// Check if floating point literal
 		if (Regex.IsMatch(lexeme, Syntax.floating_point_literal))
-			return new Token(current_line, TokenType.UnsignedLongConstant, double.Parse(lexeme));
+			return new Token(current_line, TokenType.FloatingPointConstant, double.Parse(lexeme));
 
 		// At this point we know the lexeme is invalid since it wasn't a valid identifier or constant
 		throw new LexerException($"Invalid lexeme: \'{lexeme}\'", lexeme);

@@ -36,11 +36,11 @@ public static partial class IntermediateNode {
 		}
 	}
 	
-	public class StaticVariable(string identifier, bool is_global, InitialValue.IntegerConstant initial_value) : TopLevel
+	public class StaticVariable(string identifier, bool is_global, InitialValue.Constant initial_value) : TopLevel
 	{
 		public readonly string Identifier = identifier;
 		public readonly bool IsGlobal = is_global;
-		public readonly InitialValue.IntegerConstant InitialValue = initial_value;
+		public readonly InitialValue.Constant InitialValue = initial_value;
 
 		public override string ToString()
 		{

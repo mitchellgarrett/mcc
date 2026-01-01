@@ -43,7 +43,7 @@ public static class Syntax {
 	public const string unsigned_integer_literal = @"^[0-9]+[uU]\b$";
 	public const string long_literal = @"^[0-9]+[lL]\b$";
 	public const string unsigned_long_literal = @"^[0-9]+([lL][uU]|[uU][lL])\b$";
-	public const string floating_point_literal = @"^(([0-9]*\.[0-9]+|[0-9]+\.?)[Ee][+-]?[0-9]+|[0-9]*\.[0-9]+|[0-9]+\.)[^\w.]";
+	public const string floating_point_literal = @"^(([0-9]*\.[0-9]+|[0-9]+\.?)[Ee][+-]?[0-9]+|[0-9]*\.[0-9]+|[0-9]+\.)$";
 
 	// Comments
 	public const string single_line_comment = "//";

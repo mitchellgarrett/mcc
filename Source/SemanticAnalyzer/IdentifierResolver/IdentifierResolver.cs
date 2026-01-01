@@ -201,7 +201,7 @@ public static class IdentifierResolver
 		
 		if (factor is ParseNode.Cast cast) return new ParseNode.Cast(cast.ReturnType, ResolveIdentifiersInExpression(identifier_map, cast.Expression));
 		if (factor is ParseNode.UnaryExpression unary) return ResolveIdentifiersInUnaryExpression(identifier_map, unary);
-		if (factor is ParseNode.IntegerConstant constant) return constant;
+		if (factor is ParseNode.Constant constant) return constant;
 
 		throw new SemanticAnalzyerException($"Unhandled factor type \"{factor}\"", factor.ToString());
 	}
@@ -209,8 +209,13 @@ public static class IdentifierResolver
 	static ParseNode.Factor ResolveIdentifiersInUnaryExpression(IdentifierMap identifier_map, ParseNode.UnaryExpression unary)
 	{
 		// If negating a constant, simply create a new Constant node with a negated value
-		if (unary.Operator == Lexer.Syntax.UnaryOperator.Negation && unary.Expression is ParseNode.IntegerConstant constant)
-			return new ParseNode.IntegerConstant(constant.ReturnType, -constant.Value);
+		if (unary.Operator == Lexer.Syntax.UnaryOperator.Negation) {
+			if (unary.Expression is ParseNode.IntegerConstant integer)
+				return new ParseNode.IntegerConstant(integer.ReturnType, -integer.Value);
+			if (unary.Expression is ParseNode.FloatingPointConstant @double)
+				return new ParseNode.FloatingPointConstant(-@double.Value);
+		}
+		
 		return new ParseNode.UnaryExpression(unary.Operator, ResolveIdentifiersInExpression(identifier_map, unary.Expression));
 	}
 }
